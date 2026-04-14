@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GZ022.US.CI - 官方内容精选</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.1/dist/browser-image-compression.js"></script>
+    <style>
+        :root { --tb-blue: #2D64B3; }
+        .tb-text { color: var(--tb-blue); }
+        #access-screen, #group-detail-page, #auth-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #fff; z-index: 9999; display: none; flex-direction: column; }
+        #access-screen { display: flex; align-items: center; justify-content: center; background: #f9fafb; }
+        ::-webkit-scrollbar { display: none; }
+        * { -webkit-tap-highlight-color: transparent; }
+        .photo-card { border-radius: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; aspect-ratio: 1/1; background: #fff; border: 1px solid #f3f4f6; position: relative; }
+        .content-card { border-radius: 1rem; box-shadow: 0 4px 12px -2px rgba(0,0,0,0.08); border: 1px solid #f3f4f6; }
+        .active-scale:active { transform: scale(0.96); transition: 0.1s; }
+    </style>
+</head>
+<body class="bg-gray-50 pb-32">
+
+    <div id="access-screen">
+        <div class="w-full max-w-xs p-8 text-center">
+            <div class="font-black text-2xl tb-text uppercase italic mb-8 tracking-tighter">GZ022.US.CI</div>
+            <p class="text-xs text-gray-400 mb-6 uppercase tracking-widest">Access Protected / 访问受限</p>
+            <input id="access-code" type="password" placeholder="输入访问密码..." class="w-full bg-white border border-gray-200 rounded-2xl p-4 mb-4 outline-none text-center font-bold tracking-widest focus:border-blue-500 shadow-sm">
+            <button onclick="verifyAccess()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg">进入系统</button>
+            <p id="access-error" class="text-red-500 text-[10px] mt-4 hidden">密码无效，请联系管理员</p>
+        </div>
+    </div>
+
+    <header class="bg-white p-4 flex justify-between items-center border-b sticky top-0 z-50 shadow-sm">
+        <div class="font-black text-xl tb-text uppercase italic">GZ022.US.CI</div>
+        <div class="flex items-center gap-3">
+            <button onclick="openAuth()" id="login-status-btn" class="text-[12px] font-bold text-gray-400 border px-3 py-1 rounded-full active-scale">管理员登录</button>
+            <div onclick="if(window.Tawk_API) window.Tawk_API.toggle()" class="flex items-center gap-1.5 cursor-pointer active-scale text-green-500 font-bold text-[13px]">● 客服在线</div>
+        </div>
+    </header>
+
+    <div class="max-w-4xl mx-auto p-4">
+        <h2 class="font-black text-gray-800 text-[15px] mb-4 uppercase tracking-widest">🔥 Today's Picks</h2>
+        <div id="main-grid" class="grid grid-cols-3 gap-2.5"></div>
+    </div>
+
+    <div class="max-w-4xl mx-auto p-4 border-t border-gray-100 mt-4">
+        <h2 class="font-bold text-gray-800 text-[14px] mb-3 uppercase">📝 发表留言</h2>
+        <div class="flex gap-2">
+            <input id="comment-input" type="text" maxlength="50" placeholder="欢迎在此直接留言 (50字)..." class="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 shadow-sm">
+            <button id="comment-btn" onclick="submitComment()" class="bg-blue-600 text-white px-6 py-3 rounded-xl text-sm font-black active-scale shadow-md">提交</button>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto p-4 border-t border-gray-100 mt-2">
+        <div id="feedback-container" class="space-y-4 mt-4"></div>
+    </div>
+
+    <div id="group-detail-page" class="overflow-y-auto">
+        <div class="p-4 flex items-center border-b sticky top-0 bg-white z-[10000] justify-between shadow-sm">
+            <div class="flex items-center">
+                <button onclick="closeGroupDetail()" class="text-gray-600 text-3xl mr-4 px-2">←</button>
+                <span class="font-black text-sm uppercase">Detail View</span>
+            </div>
+            <div id="admin-upload-ctrl" class="hidden">
+                <input type="file" id="batch-file" multiple accept="image/*" class="hidden" onchange="handleBatchUpload()">
+                <label for="batch-file" class="bg-black text-white px-5 py-2 rounded-full text-xs font-black active-scale cursor-pointer uppercase shadow-lg">Upload</label>
+            </div>
+        </div>
+        <div id="related-grid" class="p-4 grid grid-cols-1 gap-4"></div>
+        <div id="status-msg" class="hidden text-center py-6 font-bold text-blue-600 animate-pulse text-sm">正在同步数据...</div>
+    </div>
+
+    <div id="auth-modal" class="justify-center items-center px-10 bg-black/40">
+        <div class="bg-white w-full rounded-[2.5rem] p-8 shadow-2xl">
+            <h3 class="font-black text-center mb-6 uppercase tracking-widest text-gray-800">Admin Login</h3>
+            <input id="user-input" type="text" placeholder="Username" class="w-full bg-gray-50 rounded-xl p-4 mb-4 outline-none border text-sm">
+            <input id="pwd-input" type="password" placeholder="Password" class="w-full bg-gray-50 rounded-xl p-4 mb-6 outline-none border text-sm">
+            <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black w-full active-scale shadow-lg">进入后台</button>
+            <button onclick="closeAuth()" class="w-full text-gray-300 text-xs py-4 uppercase font-bold mt-2">BACK</button>
+        </div>
+    </div>
+
+    <script>
+        const SB_URL = "https://rdqnfgsichwzxrvzluyg.supabase.co";
+        const SB_KEY = "sb_publishable_lpKx8N7N6s3JNKbcmqyBGQ_to3pZXQk";
+        const client = supabase.createClient(SB_URL, SB_KEY);
+
+        const ACCESS_CONFIG = {
+            "1717": [1, 6],   
+            "4747": [7, 12],  
+            "6767": [13, 18]  
+        };
+        const ADMIN_PASS = "admin2020";
+
+        let activeGroupId = null;
+        let is_admin = false;
+        let visibleRange = [1, 18]; 
+
+        window.onload = () => { 
+            const savedCode = sessionStorage.getItem('user_access_code');
+            
+            if (savedCode === ADMIN_PASS) {
+                is_admin = true;
+                visibleRange = [1, 18];
+                document.getElementById('access-screen').style.display = 'none';
+                
+                const loginBtn = document.getElementById('login-status-btn');
+                loginBtn.innerText = "退出登录";
+                loginBtn.style.color = "#ef4444"; 
+                loginBtn.onclick = userLogout; 
+                
+                renderMainGrid();
+            } else if (ACCESS_CONFIG[savedCode]) {
+                is_admin = false;
+                visibleRange = ACCESS_CONFIG[savedCode];
+                document.getElementById('access-screen').style.display = 'none';
+                
+                const loginBtn = document.getElementById('login-status-btn');
+                loginBtn.innerText = "退出查看";
+                loginBtn.style.color = "#ef4444"; 
+                loginBtn.onclick = userLogout; 
+
+                renderMainGrid();
+            } else {
+                // 如果没有缓存密码，确保密码屏显示
+                document.getElementById('access-screen').style.display = 'flex';
+            }
+            
+            fetchFeedbacks(); 
+        };
+
+        function userLogout() {
+            if(confirm("确定要安全退出吗？")) {
+                sessionStorage.removeItem('user_access_code');
+                location.reload(); 
+            }
+        }
+
+        function verifyAccess() {
+            const code = document.getElementById('access-code').value.trim();
+            const errorEl = document.getElementById('access-error');
+            
+            if (code === ADMIN_PASS) {
+                is_admin = true;
+                visibleRange = [1, 18];
+                sessionStorage.setItem('user_access_code', code); 
+                document.getElementById('access-screen').style.display = 'none';
+                
+                const loginBtn = document.getElementById('login-status-btn');
+                loginBtn.innerText = "退出登录";
+                loginBtn.style.color = "#ef4444";
+                loginBtn.onclick = userLogout;
+                
+                renderMainGrid();
+                return;
+            }
+
+            if (ACCESS_CONFIG[code]) {
+                is_admin = false;
+                visibleRange = ACCESS_CONFIG[code];
+                sessionStorage.setItem('user_access_code', code); 
+                document.getElementById('access-screen').style.display = 'none';
+                
+                const loginBtn = document.getElementById('login-status-btn');
+                loginBtn.innerText = "退出查看";
+                loginBtn.style.color = "#ef4444";
+                loginBtn.onclick = userLogout;
+
+                renderMainGrid();
+            } else {
+                errorEl.classList.remove('hidden');
+                setTimeout(() => errorEl.classList.add('hidden'), 2000);
+            }
+        }
+
+        function handleLogin() {
+            const u = document.getElementById('user-input').value;
+            const p = document.getElementById('pwd-input').value;
+            if(u === 'admin' && p === ADMIN_PASS) {
+                sessionStorage.setItem('user_access_code', ADMIN_PASS); 
+                location.reload(); 
+            } else { 
+                alert("账号或密码错误"); 
+            }
+        }
+
+        async function renderMainGrid() {
+            const { data } = await client.from('gallery').select('*').order('created_at', { ascending: true });
+            const grid = document.getElementById('main-grid');
+            let html = '';
+            
+            for(let i = visibleRange[0]; i <= visibleRange[1]; i++) {
+                const groupPhotos = data?.filter(item => item.group_id == i);
+                const coverImg = (groupPhotos && groupPhotos.length > 0) ? groupPhotos[0].img_url : null;
+                html += `
+                <div onclick="openGroupDetail(${i})" class="photo-card active-scale">
+                    ${coverImg ? `<img src="${coverImg}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-gray-200 text-2xl font-black italic">${i}</div>`}
+                </div>`;
+            }
+            grid.innerHTML = html;
+        }
+
+        async function openGroupDetail(id) {
+            activeGroupId = id;
+            document.getElementById('group-detail-page').style.display = 'flex';
+            const { data } = await client.from('gallery').select('*').eq('group_id', id).order('created_at', { ascending: true });
+            const grid = document.getElementById('related-grid');
+            grid.innerHTML = (data || []).map(item => `
+                <div class="photo-card border-none shadow-none">
+                    <img src="${item.img_url}" class="w-full h-full object-cover rounded-2xl">
+                    ${is_admin ? `<button onclick="deletePhoto('${item.id}', '${item.img_url}')" class="absolute top-2 right-2 bg-red-500 text-white w-7 h-7 rounded-full text-[10px] font-black active-scale flex items-center justify-center">✕</button>` : ''}
+                </div>
+            `).join('');
+            if(is_admin) document.getElementById('admin-upload-ctrl').classList.remove('hidden');
+        }
+
+        async function handleBatchUpload() {
+            const fileInput = document.getElementById('batch-file');
+            const files = fileInput.files;
+            
+            if (files.length === 0) return;
+            if (files.length > 6) return alert("一次最多只能选择 6 张照片");
+
+            const statusMsg = document.getElementById('status-msg');
+            statusMsg.classList.remove('hidden');
+            statusMsg.innerText = "正在压缩并加速上传...";
+            
+            let successCount = 0;
+
+            const compressionOptions = {
+                maxSizeMB: 1,
+                maxWidthOrHeight: 1920,
+                useWebWorker: true 
+            };
+
+            const uploadTasks = Array.from(files).map(async (file) => {
+                try {
+                    const compressedFile = await imageCompression(file, compressionOptions);
+                    const path = `GZ_${activeGroupId}_${Date.now()}_${Math.random().toString(36).substr(2,6)}.jpg`;
+                    
+                    const { error: upErr } = await client.storage.from('photos').upload(path, compressedFile);
+                    if (upErr) throw upErr;
+
+                    const { data: pData } = client.storage.from('photos').getPublicUrl(path);
+
+                    const { error: dbErr } = await client.from('gallery').insert([{
+                        img_url: pData.publicUrl,
+                        group_id: activeGroupId,
+                        description: "Official"
+                    }]);
+                    if (dbErr) throw dbErr;
+
+                    successCount++;
+                } catch (err) {
+                    console.error("单张图片处理失败:", err);
+                }
+            });
+
+            await Promise.all(uploadTasks);
+
+            statusMsg.classList.add('hidden');
+            fileInput.value = ""; 
+
+            if (successCount > 0) {
+                await openGroupDetail(activeGroupId);
+                await renderMainGrid(); 
+            } else {
+                alert("网络波动，上传失败，请重试");
+            }
+        }
+
+        async function deletePhoto(id, imgUrl) {
+            if(!confirm("确定删除吗？")) return;
+            const fileName = imgUrl.split('/').pop();
+            await client.storage.from('photos').remove([fileName]);
+            await client.from('gallery').delete().eq('id', id);
+            openGroupDetail(activeGroupId);
+            renderMainGrid();
+        }
+
+        async function submitComment() {
+            const input = document.getElementById('comment-input');
+            if(!input.value.trim()) return;
+            const { error } = await client.from('customer_feedback').insert([{ 
+                user_name: "访客_" + Math.floor(Math.random()*999), 
+                content: input.value.substring(0, 50) 
+            }]);
+            if(!error) { input.value = ""; fetchFeedbacks(); }
+        }
+
+        async function fetchFeedbacks() {
+            const { data } = await client.from('customer_feedback').select('*').order('created_at', { ascending: false });
+            if (data) document.getElementById('feedback-container').innerHTML = data.map(f => `<div class="bg-white p-5 content-card active:bg-gray-50"><div class="text-[12px] font-black text-blue-600 mb-1 uppercase">${f.user_name}</div><div class="text-[14px] text-gray-600 font-medium">${f.content}</div></div>`).join('');
+        }
+
+        function openAuth() { document.getElementById('auth-modal').style.display = 'flex'; }
+        function closeAuth() { document.getElementById('auth-modal').style.display = 'none'; }
+        function closeGroupDetail() { document.getElementById('group-detail-page').style.display = 'none'; activeGroupId = null; }
+    </script>
+
+    <script type="text/javascript">
+    var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+    (function(){
+    var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+    s1.async=true; s1.src='https://embed.tawk.to/67ede97a6e37941913988636/1imrtg97t';
+    s1.charset='UTF-8'; s1.setAttribute('crossorigin','*'); s0.parentNode.insertBefore(s1,s0);
+    })();
+    </script>
+</body>
+</html>
