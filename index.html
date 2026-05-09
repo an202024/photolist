@@ -43,13 +43,13 @@
         </div>
     </header>
 
-    <!-- 主照片列表 (一排一张) -->
+    <!-- 主照片列表 -->
     <div class="max-w-4xl mx-auto p-4">
         <h2 class="font-black text-gray-800 text-[15px] mb-4 uppercase tracking-widest">🔥 Today's Picks</h2>
         <div id="main-grid" class="grid grid-cols-1 gap-10"></div>
     </div>
 
-    <!-- 详情页面容器 -->
+    <!-- 详情页面 -->
     <div id="group-detail-page" class="overflow-y-auto">
         <div class="p-4 flex items-center border-b sticky top-0 bg-white z-[10000] justify-between shadow-sm">
             <div class="flex items-center">
@@ -65,7 +65,7 @@
         <div id="status-msg" class="hidden text-center py-6 font-bold text-blue-600 animate-pulse text-sm">正在同步...</div>
     </div>
 
-    <!-- 管理员登录框 -->
+    <!-- 管理员登录 -->
     <div id="auth-modal" class="justify-center items-center px-10 bg-black/40">
         <div class="bg-white w-full rounded-[2.5rem] p-8 shadow-2xl">
             <h3 class="font-black text-center mb-6 uppercase tracking-widest text-gray-800">Admin Login</h3>
@@ -77,9 +77,9 @@
     </div>
 
     <script>
-        // 核心配置
-        const SB_URL = "https://rdqnfgsichwzxrvzluyg.supabase.co";
-        const SB_KEY = "sb_publishable_lpKx8N7N6s3JNKbcmqyBGQ_to3pZXQk";
+        // 配置信息
+        const SB_URL = "https://sdqnikpywinxhjhnoshg.supabase.co";
+        const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNkcW5pa3B5d2lueGhqaG5oc2doIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyOTY2OTMsImV4cCI6MjA5Mzg3MjY5M30.zJ17fXCCGoJR-T36chmBGY25-4UmHhQmXRcnWUjH7Jg";
         const client = supabase.createClient(SB_URL, SB_KEY);
         const ADMIN_PASS = "admin2020";
 
@@ -107,7 +107,7 @@
             }
         };
 
-        // 验证访问码并核销 (阅后即焚)
+        // 验证访问码并核销
         async function verifyAccess() {
             const codeInput = document.getElementById('access-code').value.trim();
             const errorEl = document.getElementById('access-error');
@@ -125,7 +125,7 @@
                 .single();
 
             if (data) {
-                // 立即更新为已使用状态
+                // 核销密码
                 await client.from('access_codes').update({ is_used: true }).eq('id', data.id);
                 sessionStorage.setItem('user_access_code', 'VALID_SESSION');
                 sessionStorage.setItem('user_range', JSON.stringify([data.range_start, data.range_end]));
@@ -136,19 +136,13 @@
             }
         }
 
-        // 管理员功能：生成随机一次性密码
+        // 生成新密码功能
         async function generateNewCode() {
             const range = prompt("请输入照片范围 (例如: 1-6):", "1-6");
             if (!range) return;
-            
             const parts = range.split('-');
-            if (parts.length !== 2) return alert("格式错误，请使用 1-6 格式");
-            
             const start = parseInt(parts[0]);
             const end = parseInt(parts[1]);
-            
-            if (isNaN(start) || isNaN(end)) return alert("请输入有效数字");
-
             const newCode = Math.floor(1000 + Math.random() * 9000).toString();
 
             const { error } = await client.from('access_codes').insert([{ 
@@ -159,23 +153,21 @@
             }]);
             
             if (!error) {
-                alert(`密码生成成功！\n\n密码：${newCode}\n范围：${start}-${end}\n\n该密码使用一次后即失效。`);
+                alert(`生成成功！\n密码：${newCode}\n范围：${start}-${end}\n(单次有效)`);
             } else {
                 alert("生成失败：" + error.message);
             }
         }
 
-        // 渲染首页主网格
+        // 渲染主列表
         async function renderMainGrid() {
             const { data } = await client.from('gallery').select('*').order('created_at', { ascending: true });
             const grid = document.getElementById('main-grid');
             let html = '';
-            
             for(let i = visibleRange[0]; i <= visibleRange[1]; i++) {
                 const groupPhotos = data?.filter(item => item.group_id == i);
                 const item = groupPhotos?.[0];
                 const desc = item?.description || "";
-                
                 html += `
                 <div class="flex flex-col gap-3">
                     <div onclick="openGroupDetail(${i})" class="photo-card active-scale">
@@ -183,8 +175,8 @@
                     </div>
                     ${is_admin && item ? `
                         <div class="flex gap-2">
-                            <input id="m-desc-${item.id}" type="text" value="${desc}" class="flex-1 border rounded-lg px-3 py-2 text-sm outline-none" placeholder="编辑描述...">
-                            <button onclick="updateDescription('${item.id}', 'm-desc-${item.id}')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold active-scale">确定</button>
+                            <input id="m-desc-${item.id}" type="text" value="${desc}" class="flex-1 border rounded-lg px-3 py-2 text-sm outline-none">
+                            <button onclick="updateDescription('${item.id}', 'm-desc-${item.id}')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold">确定</button>
                         </div>
                     ` : `<div class="px-2 text-[15px] text-gray-800 font-bold">${desc}</div>`}
                 </div>`;
@@ -192,7 +184,7 @@
             grid.innerHTML = html;
         }
 
-        // 更新照片描述
+        // 更新描述逻辑
         async function updateDescription(id, inputId) {
             const newDesc = document.getElementById(inputId).value;
             const { error } = await client.from('gallery').update({ description: newDesc }).eq('id', id);
@@ -203,13 +195,11 @@
             }
         }
 
-        // 打开详情页
         async function openGroupDetail(id) {
             activeGroupId = id;
             document.getElementById('group-detail-page').style.display = 'flex';
             const { data } = await client.from('gallery').select('*').eq('group_id', id).order('created_at', { ascending: true });
             const grid = document.getElementById('related-grid');
-            
             grid.innerHTML = (data || []).map(item => `
                 <div class="flex flex-col gap-3 pb-8 border-b border-gray-100">
                     <div class="photo-card border-none shadow-none relative">
@@ -226,19 +216,6 @@
             `).join('');
             if(is_admin) document.getElementById('admin-upload-ctrl').classList.remove('hidden');
         }
-
-        // 辅助功能
-        function handleLogin() {
-            const u = document.getElementById('user-input').value;
-            const p = document.getElementById('pwd-input').value;
-            if(u === 'admin' && p === ADMIN_PASS) { sessionStorage.setItem('user_access_code', ADMIN_PASS); location.reload(); }
-            else { alert("账号或密码错误"); }
-        }
-
-        function userLogout() { sessionStorage.clear(); location.reload(); }
-        function openAuth() { document.getElementById('auth-modal').style.display = 'flex'; }
-        function closeAuth() { document.getElementById('auth-modal').style.display = 'none'; }
-        function closeGroupDetail() { document.getElementById('group-detail-page').style.display = 'none'; activeGroupId = null; }
 
         async function handleBatchUpload() {
             const fileInput = document.getElementById('batch-file');
@@ -273,6 +250,18 @@
             await client.from('gallery').delete().eq('id', id);
             openGroupDetail(activeGroupId); renderMainGrid();
         }
+
+        function handleLogin() {
+            const u = document.getElementById('user-input').value;
+            const p = document.getElementById('pwd-input').value;
+            if(u === 'admin' && p === ADMIN_PASS) { sessionStorage.setItem('user_access_code', ADMIN_PASS); location.reload(); }
+            else { alert("账号或密码错误"); }
+        }
+
+        function userLogout() { sessionStorage.clear(); location.reload(); }
+        function openAuth() { document.getElementById('auth-modal').style.display = 'flex'; }
+        function closeAuth() { document.getElementById('auth-modal').style.display = 'none'; }
+        function closeGroupDetail() { document.getElementById('group-detail-page').style.display = 'none'; activeGroupId = null; }
     </script>
 </body>
 </html>
