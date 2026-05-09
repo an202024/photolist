@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GZ022.US.CI</title>
+    <title>GZ022.US.CI - 内容精选</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.1/dist/browser-image-compression.js"></script>
@@ -12,6 +12,7 @@
         .tb-text { color: var(--tb-blue); }
         #access-screen, #group-detail-page, #auth-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #fff; z-index: 9999; display: none; flex-direction: column; }
         #access-screen { display: flex; align-items: center; justify-content: center; background: #f9fafb; }
+        ::-webkit-scrollbar { display: none; }
         .photo-card { border-radius: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; background: #fff; border: 1px solid #f3f4f6; }
         .active-scale:active { transform: scale(0.96); transition: 0.1s; }
     </style>
@@ -45,19 +46,17 @@
         <div id="main-grid" class="grid grid-cols-1 gap-10"></div>
     </div>
 
-    <!-- 详情页及管理 -->
     <div id="group-detail-page" class="overflow-y-auto">
         <div class="p-4 flex items-center border-b sticky top-0 bg-white z-[10000] justify-between">
             <button onclick="closeGroupDetail()" class="text-gray-600 text-3xl px-2">←</button>
             <div id="admin-upload-ctrl" class="hidden">
                 <input type="file" id="batch-file" multiple accept="image/*" class="hidden" onchange="handleBatchUpload()">
-                <label for="batch-file" class="bg-black text-white px-5 py-2 rounded-full text-xs font-black cursor-pointer shadow-lg">UPLOAD</label>
+                <label for="batch-file" class="bg-black text-white px-5 py-2 rounded-full text-xs font-black cursor-pointer shadow-lg uppercase">Upload</label>
             </div>
         </div>
         <div id="related-grid" class="p-4 grid grid-cols-1 gap-10"></div>
     </div>
 
-    <!-- 管理登录 -->
     <div id="auth-modal" class="justify-center items-center px-10 bg-black/40">
         <div class="bg-white w-full rounded-[2.5rem] p-8 shadow-2xl">
             <h3 class="font-black text-center mb-6 uppercase">Admin Access</h3>
@@ -89,12 +88,11 @@
                 document.getElementById('user-tools').classList.add('hidden');
                 renderMainGrid();
             } else if (savedCode === 'VALID_SESSION' && accessId) {
-                // 实时时效检查
-                const { data } = await client.from('access_codes').select('activated_at').eq('id', accessId).single();
+                const { data } = await client.from('access_codes').select('activated_at').eq('id', accessId).maybeSingle();
                 if (data && data.activated_at) {
                     const startTime = new Date(data.activated_at);
-                    if (new Date() - startTime > 3600000) { // 1小时超时
-                        alert("权限已过期，请联系管理员获取新密码");
+                    if (new Date() - startTime > 3600000) { // 1小时限制
+                        alert("权限已过期");
                         userLogout();
                         return;
                     }
@@ -116,15 +114,16 @@
                 return;
             }
 
-            const { data, error } = await client.from('access_codes').select('*').eq('code', codeInput).single();
+            const { data, error } = await client.from('access_codes').select('*').eq('code', codeInput).maybeSingle();
             if (error || !data) {
-                errorEl.innerText = "密码无效或已过期";
+                errorEl.innerText = "密码无效";
                 errorEl.classList.remove('hidden');
                 return;
             }
 
             const now = new Date();
             if (!data.activated_at) {
+                // 首次激活：标记已使用并记录时间
                 await client.from('access_codes').update({ activated_at: now.toISOString(), is_used: true }).eq('id', data.id);
             } else if (now - new Date(data.activated_at) > 3600000) {
                 errorEl.innerText = "该密码已过期";
@@ -139,16 +138,24 @@
         }
 
         async function generateNewCode() {
+            // 先统计剩余库存
             const { count } = await client.from('access_codes').select('*', { count: 'exact', head: true }).eq('is_used', false);
-            const { data, error } = await client.from('access_codes').select('*').eq('is_used', false).order('id', { ascending: true }).limit(1).single();
+            
+            // 提取最早一个未使用的随机码
+            const { data, error } = await client.from('access_codes')
+                .select('*')
+                .eq('is_used', false)
+                .order('id', { ascending: true })
+                .limit(1)
+                .maybeSingle();
 
             if (error || !data) {
-                alert("库存已耗尽，请运行SQL补货");
+                alert("库存已耗尽，请运行 SQL 脚本补货！");
                 return;
             }
 
-            let msg = `随机密码：${data.code}\n首次输入后1小时内有效`;
-            if (count && count <= 100) {
+            let msg = `随机密码：${data.code}\n首次输入后 1 小时内有效。`;
+            if (count !== null && count <= 100) {
                 msg += `\n\n⚠️ 库存预警：仅剩 ${count} 个可用，请及时更新密码库！`;
             }
             alert(msg);
@@ -159,8 +166,7 @@
             const grid = document.getElementById('main-grid');
             let html = '';
             for(let i = visibleRange[0]; i <= visibleRange[1]; i++) {
-                const groupPhotos = data?.filter(item => item.group_id == i);
-                const item = groupPhotos?.[0];
+                const item = data?.filter(it => it.group_id == i)?.[0];
                 html += `
                 <div class="flex flex-col gap-3">
                     <div onclick="openGroupDetail(${i})" class="photo-card active-scale">
@@ -211,7 +217,7 @@
             if(document.getElementById('user-input').value === 'admin' && document.getElementById('pwd-input').value === ADMIN_PASS) {
                 sessionStorage.setItem('user_access_code', ADMIN_PASS);
                 location.reload();
-            } else alert("错误");
+            } else alert("账号或密码错误");
         }
 
         function userLogout() { sessionStorage.clear(); location.reload(); }
