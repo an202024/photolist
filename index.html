@@ -22,7 +22,7 @@
     <div id="access-screen">
         <div class="w-full max-w-xs p-8 text-center">
             <div class="font-black text-2xl tb-text uppercase italic mb-8 tracking-tighter">GZ022.US.CI</div>
-            <p class="text-[10px] text-gray-400 mb-6 uppercase tracking-widest italic">1H Access Only</p>
+            <p class="text-[10px] text-gray-400 mb-6 uppercase tracking-widest italic">One-Hour Limit</p>
             <input id="access-code" type="password" placeholder="输入访问密码..." class="w-full bg-white border border-gray-200 rounded-2xl p-4 mb-4 outline-none text-center font-bold tracking-widest shadow-sm">
             <button onclick="verifyAccess()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg">进入系统</button>
             <p id="access-error" class="text-red-500 text-[10px] mt-4 hidden"></p>
@@ -32,8 +32,8 @@
     <header class="bg-white p-4 flex justify-between items-center border-b sticky top-0 z-50">
         <div class="font-black text-xl tb-text uppercase italic">GZ022.US.CI</div>
         <div id="admin-tools" class="hidden flex gap-2">
-            <button onclick="generateNewCode()" class="bg-green-600 text-white px-3 py-1 rounded-full text-[10px] font-bold active-scale uppercase">生成新密码</button>
-            <button onclick="userLogout()" class="text-[10px] font-bold text-red-500 border border-red-200 px-3 py-1 rounded-full active-scale uppercase">退出</button>
+            <button onclick="generateNewCode()" class="bg-green-600 text-white px-3 py-1 rounded-full text-[10px] font-bold active-scale uppercase tracking-tighter">生成新密码</button>
+            <button onclick="userLogout()" class="text-[10px] font-bold text-red-500 border border-red-200 px-3 py-1 rounded-full active-scale">退出</button>
         </div>
         <div id="user-tools" class="flex items-center gap-3">
             <button onclick="openAuth()" class="text-[10px] font-bold text-gray-400 border px-3 py-1 rounded-full active-scale uppercase">Admin</button>
@@ -103,13 +103,13 @@
             
             const { data, error } = await client.from('access_codes').select('*').eq('code', input).maybeSingle();
             if (error) { alert("通讯失败: " + error.message); return; }
-            if (!data) { err.innerText = "密码错误"; err.classList.remove('hidden'); return; }
+            if (!data) { err.innerText = "密码错误或不存在"; err.classList.remove('hidden'); return; }
 
             const now = new Date();
             if (!data.activated_at) {
                 await client.from('access_codes').update({ activated_at: now.toISOString(), is_used: true }).eq('id', data.id);
             } else if (now - new Date(data.activated_at) > 3600000) {
-                err.innerText = "密码已超时"; err.classList.remove('hidden'); return;
+                err.innerText = "密码已过有效期"; err.classList.remove('hidden'); return;
             }
 
             sessionStorage.setItem('user_access_code', 'VALID_SESSION');
@@ -118,26 +118,27 @@
         }
 
         async function generateNewCode() {
-            // 1. 获取库存数
-            const { count, error: cErr } = await client.from('access_codes')
-                .select('*', { count: 'exact', head: true })
-                .eq('is_used', false);
-            
-            if (cErr) { alert("获取库容失败: " + cErr.message); return; }
-
-            // 2. 取出一个未使用的码
-            const { data, error } = await client.from('access_codes')
-                .select('*')
+            // 直接请求未使用数据并获取总数
+            const { count, data, error } = await client.from('access_codes')
+                .select('*', { count: 'exact' })
                 .eq('is_used', false)
                 .order('id', { ascending: true })
                 .limit(1)
                 .maybeSingle();
 
-            if (!data || error) { alert("库存已耗尽，请运行 SQL 脚本！"); return; }
+            if (error) { 
+                alert("读取库容失败，错误信息: " + error.message); 
+                return; 
+            }
 
-            let msg = `密码：${data.code}\n首次输入后 1 小时有效`;
+            if (!data) { 
+                alert("库存已耗尽，请运行 SQL 脚本补货！"); 
+                return; 
+            }
+
+            let msg = `客户密码：${data.code}\n首次输入后 1 小时内有效。`;
             if (count !== null && count <= 100) {
-                msg += `\n\n⚠️ 库存仅剩 ${count} 个！`;
+                msg += `\n\n⚠️ 【库存预警】：仅剩 ${count} 个！`;
             }
             alert(msg);
         }
@@ -153,7 +154,7 @@
                     <div onclick="openGroupDetail(${i})" class="photo-card active-scale cursor-pointer">
                         ${item ? `<img src="${item.img_url}" class="w-full h-auto">` : `<div class="w-full aspect-square flex items-center justify-center text-gray-200 text-2xl font-black italic">${i}</div>`}
                     </div>
-                    <div class="px-2 text-[15px] text-gray-800 font-bold uppercase">${item?.description || ""}</div>
+                    <div class="px-2 text-[15px] text-gray-800 font-bold uppercase tracking-tighter">${item?.description || ""}</div>
                 </div>`;
             }
             grid.innerHTML = html;
@@ -185,16 +186,18 @@
         }
 
         async function deletePhoto(id, url) {
-            if(!confirm("确定彻底删除？")) return;
+            if(!confirm("确定删除？")) return;
             await client.storage.from('photos').remove([url.split('/').pop()]);
             await client.from('gallery').delete().eq('id', id);
             openGroupDetail(activeGroupId);
         }
 
         function handleLogin() {
-            if(document.getElementById('user-input').value === 'admin' && document.getElementById('pwd-input').value === ADMIN_PASS) {
+            const u = document.getElementById('user-input').value;
+            const p = document.getElementById('pwd-input').value;
+            if(u === 'admin' && p === ADMIN_PASS) {
                 sessionStorage.setItem('user_access_code', ADMIN_PASS); location.reload();
-            } else alert("密码错误");
+            } else alert("账号或密码错误");
         }
 
         function userLogout() { sessionStorage.clear(); location.reload(); }
