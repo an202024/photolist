@@ -15,48 +15,40 @@
         ::-webkit-scrollbar { display: none; }
         * { -webkit-tap-highlight-color: transparent; }
         .photo-card { border-radius: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; background: #fff; border: 1px solid #f3f4f6; position: relative; width: 100%; }
-        .content-card { border-radius: 1rem; box-shadow: 0 4px 12px -2px rgba(0,0,0,0.08); border: 1px solid #f3f4f6; }
         .active-scale:active { transform: scale(0.96); transition: 0.1s; }
     </style>
 </head>
 <body class="bg-gray-50 pb-32">
 
+    <!-- 访问屏 -->
     <div id="access-screen">
         <div class="w-full max-w-xs p-8 text-center">
             <div class="font-black text-2xl tb-text uppercase italic mb-8 tracking-tighter">GZ022.US.CI</div>
-            <p class="text-xs text-gray-400 mb-6 uppercase tracking-widest">Access Protected / 访问受限</p>
+            <p class="text-xs text-gray-400 mb-6 uppercase tracking-widest">Access Protected / 一次性访问</p>
             <input id="access-code" type="password" placeholder="输入访问密码..." class="w-full bg-white border border-gray-200 rounded-2xl p-4 mb-4 outline-none text-center font-bold tracking-widest focus:border-blue-500 shadow-sm">
             <button onclick="verifyAccess()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg">进入系统</button>
-            <p id="access-error" class="text-red-500 text-[10px] mt-4 hidden">密码无效，请联系管理员</p>
+            <p id="access-error" class="text-red-500 text-[10px] mt-4 hidden">密码无效或已被使用</p>
         </div>
     </div>
 
+    <!-- 导航栏 -->
     <header class="bg-white p-4 flex justify-between items-center border-b sticky top-0 z-50 shadow-sm">
         <div class="font-black text-xl tb-text uppercase italic">GZ022.US.CI</div>
-        <div class="flex items-center gap-3">
-            <button onclick="openAuth()" id="login-status-btn" class="text-[12px] font-bold text-gray-400 border px-3 py-1 rounded-full active-scale">管理员登录</button>
-            <div onclick="if(window.Tawk_API) window.Tawk_API.toggle()" class="flex items-center gap-1.5 cursor-pointer active-scale text-green-500 font-bold text-[13px]">● 客服在线</div>
+        <div id="admin-tools" class="hidden flex gap-2">
+            <button onclick="generateNewCode()" class="bg-green-600 text-white px-3 py-1 rounded-full text-[10px] font-bold active-scale uppercase">生成新密码</button>
+            <button onclick="userLogout()" class="text-[10px] font-bold text-red-500 border border-red-200 px-3 py-1 rounded-full active-scale">退出</button>
+        </div>
+        <div id="user-tools" class="flex items-center gap-3">
+            <button onclick="openAuth()" id="login-status-btn" class="text-[10px] font-bold text-gray-400 border px-3 py-1 rounded-full active-scale">管理员</button>
         </div>
     </header>
 
     <div class="max-w-4xl mx-auto p-4">
         <h2 class="font-black text-gray-800 text-[15px] mb-4 uppercase tracking-widest">🔥 Today's Picks</h2>
-        <!-- 修改点：一排一张 -->
-        <div id="main-grid" class="grid grid-cols-1 gap-8"></div>
+        <div id="main-grid" class="grid grid-cols-1 gap-10"></div>
     </div>
 
-    <div class="max-w-4xl mx-auto p-4 border-t border-gray-100 mt-4">
-        <h2 class="font-bold text-gray-800 text-[14px] mb-3 uppercase">📝 发表留言</h2>
-        <div class="flex gap-2">
-            <input id="comment-input" type="text" maxlength="50" placeholder="欢迎在此直接留言 (50字)..." class="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 shadow-sm">
-            <button id="comment-btn" onclick="submitComment()" class="bg-blue-600 text-white px-6 py-3 rounded-xl text-sm font-black active-scale shadow-md">提交</button>
-        </div>
-    </div>
-
-    <div class="max-w-4xl mx-auto p-4 border-t border-gray-100 mt-2">
-        <div id="feedback-container" class="space-y-4 mt-4"></div>
-    </div>
-
+    <!-- 详情页 -->
     <div id="group-detail-page" class="overflow-y-auto">
         <div class="p-4 flex items-center border-b sticky top-0 bg-white z-[10000] justify-between shadow-sm">
             <div class="flex items-center">
@@ -68,10 +60,11 @@
                 <label for="batch-file" class="bg-black text-white px-5 py-2 rounded-full text-xs font-black active-scale cursor-pointer uppercase shadow-lg">Upload</label>
             </div>
         </div>
-        <div id="related-grid" class="p-4 grid grid-cols-1 gap-8"></div>
-        <div id="status-msg" class="hidden text-center py-6 font-bold text-blue-600 animate-pulse text-sm">正在同步数据...</div>
+        <div id="related-grid" class="p-4 grid grid-cols-1 gap-10"></div>
+        <div id="status-msg" class="hidden text-center py-6 font-bold text-blue-600 animate-pulse text-sm">正在同步...</div>
     </div>
 
+    <!-- 登录模态框 -->
     <div id="auth-modal" class="justify-center items-center px-10 bg-black/40">
         <div class="bg-white w-full rounded-[2.5rem] p-8 shadow-2xl">
             <h3 class="font-black text-center mb-6 uppercase tracking-widest text-gray-800">Admin Login</h3>
@@ -86,93 +79,83 @@
         const SB_URL = "https://rdqnfgsichwzxrvzluyg.supabase.co";
         const SB_KEY = "sb_publishable_lpKx8N7N6s3JNKbcmqyBGQ_to3pZXQk";
         const client = supabase.createClient(SB_URL, SB_KEY);
-
-        const ACCESS_CONFIG = {
-            "1717": [1, 6],   
-            "6868": [7, 12],  
-            "6969": [13, 18]  
-        };
         const ADMIN_PASS = "admin2020";
 
-        let activeGroupId = null;
         let is_admin = false;
-        let visibleRange = [1, 18]; 
+        let visibleRange = [1, 18];
+        let activeGroupId = null;
 
         window.onload = () => { 
             const savedCode = sessionStorage.getItem('user_access_code');
+            const savedRange = sessionStorage.getItem('user_range');
+            
             if (savedCode === ADMIN_PASS) {
                 is_admin = true;
                 visibleRange = [1, 18];
                 document.getElementById('access-screen').style.display = 'none';
-                const loginBtn = document.getElementById('login-status-btn');
-                loginBtn.innerText = "退出登录";
-                loginBtn.style.color = "#ef4444"; 
-                loginBtn.onclick = userLogout; 
+                document.getElementById('admin-tools').classList.remove('hidden');
+                document.getElementById('user-tools').classList.add('hidden');
                 renderMainGrid();
-            } else if (ACCESS_CONFIG[savedCode]) {
-                is_admin = false;
-                visibleRange = ACCESS_CONFIG[savedCode];
+            } else if (savedCode === 'VALID_SESSION' && savedRange) {
+                visibleRange = JSON.parse(savedRange);
                 document.getElementById('access-screen').style.display = 'none';
-                const loginBtn = document.getElementById('login-status-btn');
-                loginBtn.innerText = "退出查看";
-                loginBtn.style.color = "#ef4444"; 
-                loginBtn.onclick = userLogout; 
                 renderMainGrid();
             } else {
                 document.getElementById('access-screen').style.display = 'flex';
             }
-            fetchFeedbacks(); 
         };
 
-        function userLogout() {
-            if(confirm("确定要安全退出吗？")) {
-                sessionStorage.removeItem('user_access_code');
-                location.reload(); 
-            }
-        }
-
-        function verifyAccess() {
-            const code = document.getElementById('access-code').value.trim();
+        // 验证逻辑：包含随机码核销
+        async function verifyAccess() {
+            const codeInput = document.getElementById('access-code').value.trim();
             const errorEl = document.getElementById('access-error');
-            if (code === ADMIN_PASS) {
-                is_admin = true;
-                visibleRange = [1, 18];
-                sessionStorage.setItem('user_access_code', code); 
-                document.getElementById('access-screen').style.display = 'none';
-                const loginBtn = document.getElementById('login-status-btn');
-                loginBtn.innerText = "退出登录";
-                loginBtn.style.color = "#ef4444";
-                loginBtn.onclick = userLogout;
-                renderMainGrid();
+
+            if (codeInput === ADMIN_PASS) {
+                sessionStorage.setItem('user_access_code', ADMIN_PASS);
+                location.reload();
                 return;
             }
-            if (ACCESS_CONFIG[code]) {
-                is_admin = false;
-                visibleRange = ACCESS_CONFIG[code];
-                sessionStorage.setItem('user_access_code', code); 
-                document.getElementById('access-screen').style.display = 'none';
-                const loginBtn = document.getElementById('login-status-btn');
-                loginBtn.innerText = "退出查看";
-                loginBtn.style.color = "#ef4444";
-                loginBtn.onclick = userLogout;
-                renderMainGrid();
+
+            // 查询随机码
+            const { data, error } = await client.from('access_codes')
+                .select('*')
+                .eq('code', codeInput)
+                .eq('is_used', false)
+                .single();
+
+            if (data) {
+                // 立即销毁密码
+                await client.from('access_codes').update({ is_used: true }).eq('id', data.id);
+                sessionStorage.setItem('user_access_code', 'VALID_SESSION');
+                sessionStorage.setItem('user_range', JSON.stringify([data.range_start, data.range_end]));
+                location.reload();
             } else {
                 errorEl.classList.remove('hidden');
                 setTimeout(() => errorEl.classList.add('hidden'), 2000);
             }
         }
 
-        function handleLogin() {
-            const u = document.getElementById('user-input').value;
-            const p = document.getElementById('pwd-input').value;
-            if(u === 'admin' && p === ADMIN_PASS) {
-                sessionStorage.setItem('user_access_code', ADMIN_PASS); 
-                location.reload(); 
-            } else { 
-                alert("账号或密码错误"); 
+        // 管理员功能：生成随机码
+        async function generateNewCode() {
+            const range = prompt("请输入照片范围 (如: 1-6):", "1-6");
+            if (!range) return;
+            const [start, end] = range.split('-').map(Number);
+            const newCode = Math.floor(1000 + Math.random() * 9000).toString();
+
+            const { error } = await client.from('access_codes').insert([{ 
+                code: newCode, 
+                range_start: start, 
+                range_end: end 
+            }]);
+            
+            if (!error) {
+                alert(`密码生成成功！\n\n密码：${newCode}\n范围：${start}-${end}\n\n该密码使用一次后即刻失效。`);
+            } else {
+                alert("生成失败，请检查数据库连接");
             }
         }
 
+        // 渲染主网格（一排一张）
         async function renderMainGrid() {
             const { data } = await client.from('gallery').select('*').order('created_at', { ascending: true });
             const grid = document.getElementById('main-grid');
@@ -180,28 +163,37 @@
             
             for(let i = visibleRange[0]; i <= visibleRange[1]; i++) {
                 const groupPhotos = data?.filter(item => item.group_id == i);
-                const coverItem = (groupPhotos && groupPhotos.length > 0) ? groupPhotos[0] : null;
-                const coverImg = coverItem ? coverItem.img_url : null;
-                const description = coverItem ? (coverItem.description || "") : "";
+                const item = groupPhotos?.[0];
+                const desc = item?.description || "";
                 
                 html += `
                 <div class="flex flex-col gap-3">
                     <div onclick="openGroupDetail(${i})" class="photo-card active-scale">
-                        ${coverImg ? `<img src="${coverImg}" class="w-full h-auto object-contain">` : `<div class="w-full aspect-square flex items-center justify-center text-gray-200 text-2xl font-black italic">${i}</div>`}
+                        ${item ? `<img src="${item.img_url}" class="w-full h-auto">` : `<div class="w-full aspect-square flex items-center justify-center text-gray-200 text-2xl font-black italic">${i}</div>`}
                     </div>
-                    ${is_admin && coverItem ? `
+                    ${is_admin && item ? `
                         <div class="flex gap-2">
-                            <input id="main-desc-${coverItem.id}" type="text" value="${description}" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none" placeholder="输入描述...">
-                            <button onclick="updateDescription('${coverItem.id}', 'main-desc-${coverItem.id}')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold active-scale">确定</button>
+                            <input id="m-desc-${item.id}" type="text" value="${desc}" class="flex-1 border rounded-lg px-3 py-2 text-sm outline-none" placeholder="输入描述...">
+                            <button onclick="updateDescription('${item.id}', 'm-desc-${item.id}')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold active-scale">确定</button>
                         </div>
-                    ` : `
-                        <div class="px-1 text-[15px] text-gray-800 font-semibold">${description}</div>
-                    `}
+                    ` : `<div class="px-2 text-[15px] text-gray-800 font-bold">${desc}</div>`}
                 </div>`;
             }
             grid.innerHTML = html;
         }
 
+        // 更新描述
+        async function updateDescription(id, inputId) {
+            const newDesc = document.getElementById(inputId).value;
+            const { error } = await client.from('gallery').update({ description: newDesc }).eq('id', id);
+            if(!error) { 
+                alert("已保存"); 
+                renderMainGrid(); 
+                if(activeGroupId) openGroupDetail(activeGroupId); 
+            }
+        }
+
+        // 详情页逻辑
         async function openGroupDetail(id) {
             activeGroupId = id;
             document.getElementById('group-detail-page').style.display = 'flex';
@@ -216,30 +208,29 @@
                     </div>
                     ${is_admin ? `
                         <div class="flex gap-2">
-                            <input id="detail-desc-${item.id}" type="text" value="${item.description || ''}" placeholder="修改描述..." class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none">
-                            <button onclick="updateDescription('${item.id}', 'detail-desc-${item.id}')" class="bg-black text-white px-4 py-2 rounded-lg text-xs font-bold active-scale">确定</button>
+                            <input id="d-desc-${item.id}" type="text" value="${item.description || ''}" class="flex-1 border rounded-lg px-3 py-2 text-sm outline-none">
+                            <button onclick="updateDescription('${item.id}', 'd-desc-${item.id}')" class="bg-black text-white px-4 py-2 rounded-lg text-xs font-bold">确定</button>
                         </div>
-                    ` : `
-                        <div class="px-2 text-[15px] text-gray-700 font-medium">${item.description || ''}</div>
-                    `}
+                    ` : `<div class="px-2 text-[15px] text-gray-700 font-medium">${item.description || ''}</div>`}
                 </div>
             `).join('');
-            
             if(is_admin) document.getElementById('admin-upload-ctrl').classList.remove('hidden');
         }
 
-        async function updateDescription(id, inputId) {
-            const newDesc = document.getElementById(inputId).value;
-            const { error } = await client.from('gallery').update({ description: newDesc }).eq('id', id);
-            if(!error) {
-                alert("更新成功");
-                if(activeGroupId) openGroupDetail(activeGroupId);
-                renderMainGrid();
-            } else {
-                alert("保存失败");
-            }
+        // 登录/退出逻辑
+        function handleLogin() {
+            const u = document.getElementById('user-input').value;
+            const p = document.getElementById('pwd-input').value;
+            if(u === 'admin' && p === ADMIN_PASS) { sessionStorage.setItem('user_access_code', ADMIN_PASS); location.reload(); }
+            else { alert("账号或密码错误"); }
         }
 
+        function userLogout() { sessionStorage.clear(); location.reload(); }
+        function openAuth() { document.getElementById('auth-modal').style.display = 'flex'; }
+        function closeAuth() { document.getElementById('auth-modal').style.display = 'none'; }
+        function closeGroupDetail() { document.getElementById('group-detail-page').style.display = 'none'; activeGroupId = null; }
+
+        // 文件上传（原有逻辑）
         async function handleBatchUpload() {
             const fileInput = document.getElementById('batch-file');
             const files = fileInput.files;
@@ -253,25 +244,17 @@
                 try {
                     const compressedFile = await imageCompression(file, compressionOptions);
                     const path = `GZ_${activeGroupId}_${Date.now()}_${Math.random().toString(36).substr(2,6)}.jpg`;
-                    const { error: upErr } = await client.storage.from('photos').upload(path, compressedFile);
-                    if (upErr) throw upErr;
+                    await client.storage.from('photos').upload(path, compressedFile);
                     const { data: pData } = client.storage.from('photos').getPublicUrl(path);
-                    await client.from('gallery').insert([{
-                        img_url: pData.publicUrl,
-                        group_id: activeGroupId,
-                        description: "" 
-                    }]);
+                    await client.from('gallery').insert([{ img_url: pData.publicUrl, group_id: activeGroupId, description: "" }]);
                     successCount++;
-                } catch (err) { console.error(err); }
+                } catch (e) {}
             });
 
             await Promise.all(uploadTasks);
             statusMsg.classList.add('hidden');
             fileInput.value = ""; 
-            if (successCount > 0) {
-                await openGroupDetail(activeGroupId);
-                await renderMainGrid(); 
-            }
+            if (successCount > 0) { openGroupDetail(activeGroupId); renderMainGrid(); }
         }
 
         async function deletePhoto(id, imgUrl) {
@@ -279,37 +262,8 @@
             const fileName = imgUrl.split('/').pop();
             await client.storage.from('photos').remove([fileName]);
             await client.from('gallery').delete().eq('id', id);
-            openGroupDetail(activeGroupId);
-            renderMainGrid();
+            openGroupDetail(activeGroupId); renderMainGrid();
         }
-
-        async function submitComment() {
-            const input = document.getElementById('comment-input');
-            if(!input.value.trim()) return;
-            const { error } = await client.from('customer_feedback').insert([{ 
-                user_name: "访客_" + Math.floor(Math.random()*999), 
-                content: input.value.substring(0, 50) 
-            }]);
-            if(!error) { input.value = ""; fetchFeedbacks(); }
-        }
-
-        async function fetchFeedbacks() {
-            const { data } = await client.from('customer_feedback').select('*').order('created_at', { ascending: false });
-            if (data) document.getElementById('feedback-container').innerHTML = data.map(f => `<div class="bg-white p-5 content-card active:bg-gray-50"><div class="text-[12px] font-black text-blue-600 mb-1 uppercase">${f.user_name}</div><div class="text-[14px] text-gray-600 font-medium">${f.content}</div></div>`).join('');
-        }
-
-        function openAuth() { document.getElementById('auth-modal').style.display = 'flex'; }
-        function closeAuth() { document.getElementById('auth-modal').style.display = 'none'; }
-        function closeGroupDetail() { document.getElementById('group-detail-page').style.display = 'none'; activeGroupId = null; }
-    </script>
-
-    <script type="text/javascript">
-    var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
-    (function(){
-    var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-    s1.async=true; s1.src='https://embed.tawk.to/67ede97a6e37941913988636/1imrtg97t';
-    s1.charset='UTF-8'; s1.setAttribute('crossorigin','*'); s0.parentNode.insertBefore(s1,s0);
-    })();
     </script>
 </body>
 </html>
