@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GZ022.US.CI - 内容精选</title>
+    <title>GZ022.US.CI - 官方管理系统</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.1/dist/browser-image-compression.js"></script>
@@ -13,17 +13,17 @@
         #access-screen, #group-detail-page, #auth-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #fff; z-index: 9999; display: none; flex-direction: column; }
         #access-screen { display: flex; align-items: center; justify-content: center; background: #f9fafb; }
         ::-webkit-scrollbar { display: none; }
-        .photo-card { border-radius: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; background: #fff; border: 1px solid #f3f4f6; position: relative; }
+        .photo-card { border-radius: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; background: #fff; border: 1px solid #f3f4f6; }
         .active-scale:active { transform: scale(0.96); transition: 0.1s; }
     </style>
 </head>
 <body class="bg-gray-50 pb-32">
 
-    <!-- 访问验证界面 -->
+    <!-- 客户访问屏 -->
     <div id="access-screen">
         <div class="w-full max-w-xs p-8 text-center">
             <div class="font-black text-2xl tb-text uppercase italic mb-8 tracking-tighter">GZ022.US.CI</div>
-            <p class="text-[10px] text-gray-400 mb-6 uppercase tracking-widest">Access Protected / 1H Limit</p>
+            <p class="text-[10px] text-gray-400 mb-6 uppercase tracking-widest italic">One-Hour Limited Access</p>
             <input id="access-code" type="password" placeholder="输入访问密码..." class="w-full bg-white border border-gray-200 rounded-2xl p-4 mb-4 outline-none text-center font-bold tracking-widest shadow-sm">
             <button onclick="verifyAccess()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg">进入系统</button>
             <p id="access-error" class="text-red-500 text-[10px] mt-4 hidden"></p>
@@ -31,23 +31,21 @@
     </div>
 
     <!-- 顶部导航 -->
-    <header class="bg-white p-4 flex justify-between items-center border-b sticky top-0 z-50 shadow-sm">
+    <header class="bg-white p-4 flex justify-between items-center border-b sticky top-0 z-50">
         <div class="font-black text-xl tb-text uppercase italic">GZ022.US.CI</div>
         <div id="admin-tools" class="hidden flex gap-2">
-            <button onclick="generateNewCode()" class="bg-green-600 text-white px-3 py-1 rounded-full text-[10px] font-bold active-scale uppercase">生成新密码</button>
-            <button onclick="userLogout()" class="text-[10px] font-bold text-red-500 border border-red-200 px-3 py-1 rounded-full active-scale">退出</button>
+            <button onclick="generateNewCode()" class="bg-green-600 text-white px-3 py-1 rounded-full text-[10px] font-bold active-scale uppercase">生成密码</button>
+            <button onclick="userLogout()" class="text-[10px] font-bold text-red-500 border border-red-200 px-3 py-1 rounded-full active-scale uppercase tracking-tighter">退出</button>
         </div>
         <div id="user-tools" class="flex items-center gap-3">
-            <button onclick="openAuth()" class="text-[10px] font-bold text-gray-400 border px-3 py-1 rounded-full active-scale">管理员</button>
+            <button onclick="openAuth()" class="text-[10px] font-bold text-gray-400 border px-3 py-1 rounded-full active-scale uppercase tracking-widest">Admin</button>
         </div>
     </header>
 
-    <!-- 主网格列表 -->
     <div class="max-w-4xl mx-auto p-4">
         <div id="main-grid" class="grid grid-cols-1 gap-10"></div>
     </div>
 
-    <!-- 详情浏览与上传页 -->
     <div id="group-detail-page" class="overflow-y-auto">
         <div class="p-4 flex items-center border-b sticky top-0 bg-white z-[10000] justify-between shadow-sm">
             <button onclick="closeGroupDetail()" class="text-gray-600 text-3xl px-2 active-scale">←</button>
@@ -59,14 +57,13 @@
         <div id="related-grid" class="p-4 grid grid-cols-1 gap-10"></div>
     </div>
 
-    <!-- 管理员登录 -->
     <div id="auth-modal" class="justify-center items-center px-10 bg-black/40">
         <div class="bg-white w-full rounded-[2.5rem] p-8 shadow-2xl">
-            <h3 class="font-black text-center mb-6 uppercase tracking-widest text-gray-800">Admin Login</h3>
-            <input id="user-input" type="text" placeholder="Username" class="w-full bg-gray-50 rounded-xl p-4 mb-4 outline-none border text-sm">
-            <input id="pwd-input" type="password" placeholder="Password" class="w-full bg-gray-50 rounded-xl p-4 mb-6 outline-none border text-sm">
-            <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black active-scale shadow-lg">LOGIN</button>
-            <button onclick="closeAuth()" class="w-full text-gray-300 text-xs py-4 uppercase font-bold mt-2">BACK</button>
+            <h3 class="font-black text-center mb-6 uppercase tracking-widest">Admin Access</h3>
+            <input id="user-input" type="text" placeholder="Username" class="w-full bg-gray-50 rounded-xl p-4 mb-4 border text-sm outline-none">
+            <input id="pwd-input" type="password" placeholder="Password" class="w-full bg-gray-50 rounded-xl p-4 mb-6 border text-sm outline-none">
+            <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black shadow-lg">LOGIN</button>
+            <button onclick="closeAuth()" class="w-full text-gray-300 text-xs py-4 font-bold mt-2 uppercase">BACK</button>
         </div>
     </div>
 
@@ -83,7 +80,6 @@
         window.onload = async () => { 
             const savedCode = sessionStorage.getItem('user_access_code');
             const accessId = sessionStorage.getItem('access_id');
-            
             if (savedCode === ADMIN_PASS) {
                 is_admin = true;
                 document.getElementById('access-screen').style.display = 'none';
@@ -91,15 +87,9 @@
                 document.getElementById('user-tools').classList.add('hidden');
                 renderMainGrid();
             } else if (savedCode === 'VALID_SESSION' && accessId) {
-                // 实时1小时有效期检查
                 const { data } = await client.from('access_codes').select('activated_at').eq('id', accessId).maybeSingle();
-                if (data && data.activated_at) {
-                    const startTime = new Date(data.activated_at);
-                    if (new Date() - startTime > 3600000) { 
-                        alert("您的访问权限已过期（1小时时效限制）");
-                        userLogout();
-                        return;
-                    }
+                if (data && data.activated_at && (new Date() - new Date(data.activated_at) > 3600000)) {
+                    alert("会话已过期 (1小时有效)"); userLogout(); return;
                 }
                 document.getElementById('access-screen').style.display = 'none';
                 renderMainGrid();
@@ -109,31 +99,19 @@
         };
 
         async function verifyAccess() {
-            const codeInput = document.getElementById('access-code').value.trim();
-            const errorEl = document.getElementById('access-error');
-
-            if (codeInput === ADMIN_PASS) {
-                sessionStorage.setItem('user_access_code', ADMIN_PASS);
-                location.reload();
-                return;
-            }
-
-            const { data, error } = await client.from('access_codes').select('*').eq('code', codeInput).maybeSingle();
+            const input = document.getElementById('access-code').value.trim();
+            const err = document.getElementById('access-error');
+            if (input === ADMIN_PASS) { sessionStorage.setItem('user_access_code', ADMIN_PASS); location.reload(); return; }
             
-            if (error || !data) {
-                errorEl.innerText = "密码无效或已过期";
-                errorEl.classList.remove('hidden');
-                return;
-            }
+            const { data, error } = await client.from('access_codes').select('*').eq('code', input).maybeSingle();
+            if (error) { alert("数据库连接异常: " + error.message); return; }
+            if (!data) { err.innerText = "密码无效"; err.classList.remove('hidden'); return; }
 
             const now = new Date();
-            // 处理首次进入记录时间
             if (!data.activated_at) {
                 await client.from('access_codes').update({ activated_at: now.toISOString(), is_used: true }).eq('id', data.id);
             } else if (now - new Date(data.activated_at) > 3600000) {
-                errorEl.innerText = "该密码已于1小时前过期";
-                errorEl.classList.remove('hidden');
-                return;
+                err.innerText = "该密码已超时失效"; err.classList.remove('hidden'); return;
             }
 
             sessionStorage.setItem('user_access_code', 'VALID_SESSION');
@@ -142,10 +120,12 @@
         }
 
         async function generateNewCode() {
-            // 实时统计库存
-            const { count } = await client.from('access_codes').select('*', { count: 'exact', head: true }).eq('is_used', false);
+            const { count, error: cErr } = await client.from('access_codes')
+                .select('*', { count: 'exact', head: true })
+                .eq('is_used', false);
             
-            // 提取下一个随机码
+            if (cErr) { alert("读取库容失败，请确保运行了最新的权限 SQL!"); return; }
+
             const { data, error } = await client.from('access_codes')
                 .select('*')
                 .eq('is_used', false)
@@ -153,14 +133,11 @@
                 .limit(1)
                 .maybeSingle();
 
-            if (error || !data) {
-                alert("库存已耗尽，请立即运行 SQL 补货脚本！");
-                return;
-            }
+            if (!data || error) { alert("库中已无可用密码！请立即运行 SQL 补货。"); return; }
 
-            let msg = `发给客户的随机密码：${data.code}\n首次输入后 1 小时内有效。`;
+            let msg = `客户密码：${data.code}\n首次输入后 1 小时内有效。`;
             if (count !== null && count <= 100) {
-                msg += `\n\n⚠️ 【库存预警】：仅剩 ${count} 个可用密码，请及时更新库！`;
+                msg += `\n\n⚠️ 库存警报：仅剩 ${count} 个！`;
             }
             alert(msg);
         }
@@ -170,7 +147,7 @@
             const grid = document.getElementById('main-grid');
             let html = '';
             for(let i = visibleRange[0]; i <= visibleRange[1]; i++) {
-                const item = data?.filter(it => it.group_id == i)?.[0];
+                const item = data?.find(it => it.group_id == i);
                 html += `
                 <div class="flex flex-col gap-3">
                     <div onclick="openGroupDetail(${i})" class="photo-card active-scale cursor-pointer">
@@ -186,47 +163,38 @@
             activeGroupId = id;
             document.getElementById('group-detail-page').style.display = 'flex';
             const { data } = await client.from('gallery').select('*').eq('group_id', id).order('created_at', { ascending: true });
-            const grid = document.getElementById('related-grid');
-            grid.innerHTML = (data || []).map(item => `
+            document.getElementById('related-grid').innerHTML = (data || []).map(item => `
                 <div class="flex flex-col gap-3 pb-8 border-b border-gray-100">
                     <img src="${item.img_url}" class="w-full h-auto rounded-2xl">
                     ${is_admin ? `<button onclick="deletePhoto('${item.id}', '${item.img_url}')" class="text-red-500 text-[10px] font-bold self-end uppercase">Delete</button>` : ''}
-                </div>
-            `).join('');
+                </div>`).join('');
             if(is_admin) document.getElementById('admin-upload-ctrl').classList.remove('hidden');
         }
 
         async function handleBatchUpload() {
             const files = document.getElementById('batch-file').files;
             if (files.length === 0) return;
-            const options = { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true };
             for (let file of files) {
-                try {
-                    const compressed = await imageCompression(file, options);
-                    const path = `GZ_${activeGroupId}_${Date.now()}.jpg`;
-                    await client.storage.from('photos').upload(path, compressed);
-                    const { data: pData } = client.storage.from('photos').getPublicUrl(path);
-                    await client.from('gallery').insert([{ img_url: pData.publicUrl, group_id: activeGroupId }]);
-                } catch (e) { console.error(e); }
+                const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1920 });
+                const path = `GZ_${activeGroupId}_${Date.now()}.jpg`;
+                await client.storage.from('photos').upload(path, compressed);
+                const { data: pData } = client.storage.from('photos').getPublicUrl(path);
+                await client.from('gallery').insert([{ img_url: pData.publicUrl, group_id: activeGroupId }]);
             }
             openGroupDetail(activeGroupId); renderMainGrid();
         }
 
-        async function deletePhoto(id, imgUrl) {
-            if(!confirm("确定删除该照片吗？")) return;
-            const fileName = imgUrl.split('/').pop();
-            await client.storage.from('photos').remove([fileName]);
+        async function deletePhoto(id, url) {
+            if(!confirm("确定彻底删除？")) return;
+            await client.storage.from('photos').remove([url.split('/').pop()]);
             await client.from('gallery').delete().eq('id', id);
             openGroupDetail(activeGroupId);
         }
 
         function handleLogin() {
-            const u = document.getElementById('user-input').value;
-            const p = document.getElementById('pwd-input').value;
-            if(u === 'admin' && p === ADMIN_PASS) {
-                sessionStorage.setItem('user_access_code', ADMIN_PASS);
-                location.reload();
-            } else { alert("账号或密码错误"); }
+            if(document.getElementById('user-input').value === 'admin' && document.getElementById('pwd-input').value === ADMIN_PASS) {
+                sessionStorage.setItem('user_access_code', ADMIN_PASS); location.reload();
+            } else alert("密码错误");
         }
 
         function userLogout() { sessionStorage.clear(); location.reload(); }
