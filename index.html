@@ -19,12 +19,16 @@
 </head>
 <body class="bg-gray-50 pb-20">
 
-    <!-- 客户验证界面 -->
+    <!-- 客户验证界面 / 管理员也可在此直接输入 admin2020 -->
     <div id="access-screen">
         <div class="w-full max-w-xs p-8 text-center">
             <div class="font-black text-2xl tracking-tighter text-blue-700 italic mb-10">GZ022.US.CI</div>
-            <input id="access-code" type="tel" pattern="[0-9]*" placeholder="输入4位访问码" class="w-full border-2 border-gray-100 p-4 mb-4 text-center font-bold text-xl outline-none rounded-2xl">
-            <button onclick="verifyAccess()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg">进入系统</button>
+            <!-- 修改为 text 类型以支持 admin2020 字母输入 -->
+            <input id="access-code" type="text" placeholder="输入访问码..." class="w-full border-2 border-gray-100 p-4 mb-4 text-center font-bold text-xl outline-none rounded-2xl shadow-sm">
+            <button onclick="verifyAccess()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg">立即进入</button>
+            
+            <!-- 预留的显式管理员入口 -->
+            <button onclick="openAuth()" class="text-gray-400 text-[10px] mt-8 uppercase font-bold tracking-widest">Admin Login</button>
             <p id="access-error" class="text-red-500 text-xs mt-4 hidden font-bold"></p>
         </div>
     </div>
@@ -33,13 +37,12 @@
     <header class="bg-white/90 backdrop-blur-md p-4 flex justify-between items-center border-b sticky top-0 z-50">
         <div class="font-black text-blue-700 italic tracking-tighter">GZ022.US.CI</div>
         <div id="admin-tools" class="hidden flex gap-2">
-            <button onclick="generateNewCode()" class="bg-green-600 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase shadow-sm">取码</button>
-            <button onclick="userLogout()" class="text-[10px] font-bold text-red-500 border border-red-100 px-3 py-1.5 rounded-full">退出</button>
+            <button onclick="generateNewCode()" class="bg-green-600 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase shadow-sm">生成密码库</button>
+            <button onclick="userLogout()" class="text-[10px] font-bold text-red-500 border border-red-100 px-3 py-1.5 rounded-full">退出登录</button>
         </div>
-        <button id="user-tools" onclick="openAuth()" class="text-[10px] font-bold text-gray-400 border px-3 py-1.5 rounded-full uppercase">管理员</button>
     </header>
 
-    <!-- 列表 -->
+    <!-- 列表展示 -->
     <div id="main-grid" class="p-4 space-y-10 max-w-xl mx-auto"></div>
 
     <!-- 详情页 -->
@@ -54,13 +57,13 @@
         <div id="related-grid" class="p-4 space-y-10"></div>
     </div>
 
-    <!-- 管理登录 -->
+    <!-- 专门的管理员登录弹窗 (以防万一) -->
     <div id="auth-modal" class="justify-center items-center px-10 bg-black/50">
         <div class="bg-white w-full max-w-sm rounded-[2rem] p-8 shadow-2xl">
-            <h3 class="font-black text-center mb-6 uppercase tracking-widest text-gray-800">Admin Login</h3>
+            <h3 class="font-black text-center mb-6 uppercase tracking-widest text-gray-800 italic">GZ022 Admin</h3>
             <input id="pwd-input" type="password" placeholder="请输入admin密码" class="w-full bg-gray-50 border p-4 mb-6 rounded-xl outline-none text-center font-bold">
             <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black shadow-lg">确认登录</button>
-            <button onclick="closeAuth()" class="w-full text-gray-300 text-xs py-4 font-bold mt-2 uppercase">BACK</button>
+            <button onclick="closeAuth()" class="w-full text-gray-300 text-xs py-4 font-bold mt-2 uppercase">取消返回</button>
         </div>
     </div>
 
@@ -79,7 +82,6 @@
                 is_admin = true;
                 document.getElementById('access-screen').style.display = 'none';
                 document.getElementById('admin-tools').classList.remove('hidden');
-                document.getElementById('user-tools').classList.add('hidden');
                 loadData();
             } else if (auth === 'USER') {
                 document.getElementById('access-screen').style.display = 'none';
@@ -89,32 +91,47 @@
             }
         };
 
+        // 核心修复：verifyAccess 现在支持直接输入 admin2020
         async function verifyAccess() {
             const input = document.getElementById('access-code').value.trim();
             const errEl = document.getElementById('access-error');
+            
+            // 路径1：如果输入的是管理员密码
             if (input === ADMIN_PASS) {
                 sessionStorage.setItem('gz_auth', ADMIN_PASS);
                 location.reload();
                 return;
             }
-            const { data, error } = await client.from('access_codes').select('*').eq('code', input).eq('is_used', false).maybeSingle();
+
+            // 路径2：查询 4 位访问码
+            const { data, error } = await client.from('access_codes')
+                .select('*')
+                .eq('code', input)
+                .eq('is_used', false)
+                .maybeSingle();
+
             if (data) {
-                await client.from('access_codes').update({ activated_at: new Date().toISOString(), is_used: true }).eq('id', data.id);
+                await client.from('access_codes').update({ 
+                    activated_at: new Date().toISOString(), 
+                    is_used: true 
+                }).eq('id', data.id);
                 sessionStorage.setItem('gz_auth', 'USER');
                 location.reload();
             } else {
-                errEl.innerText = "密码无效或已失效";
+                errEl.innerText = "码无效或已失效";
                 errEl.classList.remove('hidden');
             }
         }
 
         async function generateNewCode() {
-            const { count, data, error } = await client.from('access_codes').select('*', { count: 'exact' }).eq('is_used', false).order('id', { ascending: true }).limit(1).maybeSingle();
-            if (data) {
-                alert(`新密码：${data.code}\n库存：${count}`);
-            } else {
-                alert("库容为空！请运行SQL。");
-            }
+            const { count, data } = await client.from('access_codes')
+                .select('*', { count: 'exact' })
+                .eq('is_used', false)
+                .order('id', { ascending: true })
+                .limit(1)
+                .maybeSingle();
+            if (data) alert(`新密码：${data.code}\n剩余库存：${count}`);
+            else alert("库容已空，请补货！");
         }
 
         async function loadData() {
@@ -122,10 +139,10 @@
             const grid = document.getElementById('main-grid');
             grid.innerHTML = (data || []).map(item => `
                 <div class="flex flex-col gap-3">
-                    <div onclick="openGroupDetail(${item.group_id})" class="photo-card shadow-sm active-scale">
-                        <img src="${item.img_url}" class="w-full h-auto block" loading="lazy">
+                    <div onclick="openGroupDetail(${item.group_id})" class="photo-card active-scale shadow-sm">
+                        <img src="${item.img_url}" class="w-full h-auto block">
                     </div>
-                    <div class="px-2 text-sm font-bold text-gray-700">${item.description || ""}</div>
+                    <div class="px-2 text-sm font-bold text-gray-700 uppercase tracking-tighter">${item.description || ""}</div>
                 </div>`).join('');
         }
 
@@ -164,7 +181,7 @@
             if(document.getElementById('pwd-input').value === ADMIN_PASS) {
                 sessionStorage.setItem('gz_auth', ADMIN_PASS);
                 location.reload();
-            } else alert("密码错误");
+            } else alert("错误");
         }
 
         function userLogout() { sessionStorage.clear(); location.reload(); }
