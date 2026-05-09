@@ -14,7 +14,7 @@
         #access-screen { display: flex; align-items: center; justify-content: center; background: #f9fafb; }
         ::-webkit-scrollbar { display: none; }
         * { -webkit-tap-highlight-color: transparent; }
-        .photo-card { border-radius: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; aspect-ratio: 1/1; background: #fff; border: 1px solid #f3f4f6; position: relative; }
+        .photo-card { border-radius: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden; background: #fff; border: 1px solid #f3f4f6; position: relative; width: 100%; }
         .content-card { border-radius: 1rem; box-shadow: 0 4px 12px -2px rgba(0,0,0,0.08); border: 1px solid #f3f4f6; }
         .active-scale:active { transform: scale(0.96); transition: 0.1s; }
     </style>
@@ -41,7 +41,8 @@
 
     <div class="max-w-4xl mx-auto p-4">
         <h2 class="font-black text-gray-800 text-[15px] mb-4 uppercase tracking-widest">🔥 Today's Picks</h2>
-        <div id="main-grid" class="grid grid-cols-3 gap-2.5"></div>
+        <!-- 修改点：一排一张 -->
+        <div id="main-grid" class="grid grid-cols-1 gap-8"></div>
     </div>
 
     <div class="max-w-4xl mx-auto p-4 border-t border-gray-100 mt-4">
@@ -67,7 +68,7 @@
                 <label for="batch-file" class="bg-black text-white px-5 py-2 rounded-full text-xs font-black active-scale cursor-pointer uppercase shadow-lg">Upload</label>
             </div>
         </div>
-        <div id="related-grid" class="p-4 grid grid-cols-1 gap-4"></div>
+        <div id="related-grid" class="p-4 grid grid-cols-1 gap-8"></div>
         <div id="status-msg" class="hidden text-center py-6 font-bold text-blue-600 animate-pulse text-sm">正在同步数据...</div>
     </div>
 
@@ -99,34 +100,27 @@
 
         window.onload = () => { 
             const savedCode = sessionStorage.getItem('user_access_code');
-            
             if (savedCode === ADMIN_PASS) {
                 is_admin = true;
                 visibleRange = [1, 18];
                 document.getElementById('access-screen').style.display = 'none';
-                
                 const loginBtn = document.getElementById('login-status-btn');
                 loginBtn.innerText = "退出登录";
                 loginBtn.style.color = "#ef4444"; 
                 loginBtn.onclick = userLogout; 
-                
                 renderMainGrid();
             } else if (ACCESS_CONFIG[savedCode]) {
                 is_admin = false;
                 visibleRange = ACCESS_CONFIG[savedCode];
                 document.getElementById('access-screen').style.display = 'none';
-                
                 const loginBtn = document.getElementById('login-status-btn');
                 loginBtn.innerText = "退出查看";
                 loginBtn.style.color = "#ef4444"; 
                 loginBtn.onclick = userLogout; 
-
                 renderMainGrid();
             } else {
-                // 如果没有缓存密码，确保密码屏显示
                 document.getElementById('access-screen').style.display = 'flex';
             }
-            
             fetchFeedbacks(); 
         };
 
@@ -140,33 +134,27 @@
         function verifyAccess() {
             const code = document.getElementById('access-code').value.trim();
             const errorEl = document.getElementById('access-error');
-            
             if (code === ADMIN_PASS) {
                 is_admin = true;
                 visibleRange = [1, 18];
                 sessionStorage.setItem('user_access_code', code); 
                 document.getElementById('access-screen').style.display = 'none';
-                
                 const loginBtn = document.getElementById('login-status-btn');
                 loginBtn.innerText = "退出登录";
                 loginBtn.style.color = "#ef4444";
                 loginBtn.onclick = userLogout;
-                
                 renderMainGrid();
                 return;
             }
-
             if (ACCESS_CONFIG[code]) {
                 is_admin = false;
                 visibleRange = ACCESS_CONFIG[code];
                 sessionStorage.setItem('user_access_code', code); 
                 document.getElementById('access-screen').style.display = 'none';
-                
                 const loginBtn = document.getElementById('login-status-btn');
                 loginBtn.innerText = "退出查看";
                 loginBtn.style.color = "#ef4444";
                 loginBtn.onclick = userLogout;
-
                 renderMainGrid();
             } else {
                 errorEl.classList.remove('hidden');
@@ -192,10 +180,23 @@
             
             for(let i = visibleRange[0]; i <= visibleRange[1]; i++) {
                 const groupPhotos = data?.filter(item => item.group_id == i);
-                const coverImg = (groupPhotos && groupPhotos.length > 0) ? groupPhotos[0].img_url : null;
+                const coverItem = (groupPhotos && groupPhotos.length > 0) ? groupPhotos[0] : null;
+                const coverImg = coverItem ? coverItem.img_url : null;
+                const description = coverItem ? (coverItem.description || "") : "";
+                
                 html += `
-                <div onclick="openGroupDetail(${i})" class="photo-card active-scale">
-                    ${coverImg ? `<img src="${coverImg}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-gray-200 text-2xl font-black italic">${i}</div>`}
+                <div class="flex flex-col gap-3">
+                    <div onclick="openGroupDetail(${i})" class="photo-card active-scale">
+                        ${coverImg ? `<img src="${coverImg}" class="w-full h-auto object-contain">` : `<div class="w-full aspect-square flex items-center justify-center text-gray-200 text-2xl font-black italic">${i}</div>`}
+                    </div>
+                    ${is_admin && coverItem ? `
+                        <div class="flex gap-2">
+                            <input id="main-desc-${coverItem.id}" type="text" value="${description}" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none" placeholder="输入描述...">
+                            <button onclick="updateDescription('${coverItem.id}', 'main-desc-${coverItem.id}')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold active-scale">确定</button>
+                        </div>
+                    ` : `
+                        <div class="px-1 text-[15px] text-gray-800 font-semibold">${description}</div>
+                    `}
                 </div>`;
             }
             grid.innerHTML = html;
@@ -206,67 +207,70 @@
             document.getElementById('group-detail-page').style.display = 'flex';
             const { data } = await client.from('gallery').select('*').eq('group_id', id).order('created_at', { ascending: true });
             const grid = document.getElementById('related-grid');
+            
             grid.innerHTML = (data || []).map(item => `
-                <div class="photo-card border-none shadow-none">
-                    <img src="${item.img_url}" class="w-full h-full object-cover rounded-2xl">
-                    ${is_admin ? `<button onclick="deletePhoto('${item.id}', '${item.img_url}')" class="absolute top-2 right-2 bg-red-500 text-white w-7 h-7 rounded-full text-[10px] font-black active-scale flex items-center justify-center">✕</button>` : ''}
+                <div class="flex flex-col gap-3 pb-8 border-b border-gray-100">
+                    <div class="photo-card border-none shadow-none relative">
+                        <img src="${item.img_url}" class="w-full h-auto rounded-2xl">
+                        ${is_admin ? `<button onclick="deletePhoto('${item.id}', '${item.img_url}')" class="absolute top-2 right-2 bg-red-500 text-white w-7 h-7 rounded-full text-[10px] font-black flex items-center justify-center">✕</button>` : ''}
+                    </div>
+                    ${is_admin ? `
+                        <div class="flex gap-2">
+                            <input id="detail-desc-${item.id}" type="text" value="${item.description || ''}" placeholder="修改描述..." class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none">
+                            <button onclick="updateDescription('${item.id}', 'detail-desc-${item.id}')" class="bg-black text-white px-4 py-2 rounded-lg text-xs font-bold active-scale">确定</button>
+                        </div>
+                    ` : `
+                        <div class="px-2 text-[15px] text-gray-700 font-medium">${item.description || ''}</div>
+                    `}
                 </div>
             `).join('');
+            
             if(is_admin) document.getElementById('admin-upload-ctrl').classList.remove('hidden');
+        }
+
+        async function updateDescription(id, inputId) {
+            const newDesc = document.getElementById(inputId).value;
+            const { error } = await client.from('gallery').update({ description: newDesc }).eq('id', id);
+            if(!error) {
+                alert("更新成功");
+                if(activeGroupId) openGroupDetail(activeGroupId);
+                renderMainGrid();
+            } else {
+                alert("保存失败");
+            }
         }
 
         async function handleBatchUpload() {
             const fileInput = document.getElementById('batch-file');
             const files = fileInput.files;
-            
             if (files.length === 0) return;
-            if (files.length > 6) return alert("一次最多只能选择 6 张照片");
-
             const statusMsg = document.getElementById('status-msg');
             statusMsg.classList.remove('hidden');
-            statusMsg.innerText = "正在压缩并加速上传...";
-            
             let successCount = 0;
-
-            const compressionOptions = {
-                maxSizeMB: 1,
-                maxWidthOrHeight: 1920,
-                useWebWorker: true 
-            };
+            const compressionOptions = { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true };
 
             const uploadTasks = Array.from(files).map(async (file) => {
                 try {
                     const compressedFile = await imageCompression(file, compressionOptions);
                     const path = `GZ_${activeGroupId}_${Date.now()}_${Math.random().toString(36).substr(2,6)}.jpg`;
-                    
                     const { error: upErr } = await client.storage.from('photos').upload(path, compressedFile);
                     if (upErr) throw upErr;
-
                     const { data: pData } = client.storage.from('photos').getPublicUrl(path);
-
-                    const { error: dbErr } = await client.from('gallery').insert([{
+                    await client.from('gallery').insert([{
                         img_url: pData.publicUrl,
                         group_id: activeGroupId,
-                        description: "Official"
+                        description: "" 
                     }]);
-                    if (dbErr) throw dbErr;
-
                     successCount++;
-                } catch (err) {
-                    console.error("单张图片处理失败:", err);
-                }
+                } catch (err) { console.error(err); }
             });
 
             await Promise.all(uploadTasks);
-
             statusMsg.classList.add('hidden');
             fileInput.value = ""; 
-
             if (successCount > 0) {
                 await openGroupDetail(activeGroupId);
                 await renderMainGrid(); 
-            } else {
-                alert("网络波动，上传失败，请重试");
             }
         }
 
