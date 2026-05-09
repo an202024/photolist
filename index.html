@@ -14,106 +14,129 @@
 </head>
 <body class="bg-gray-50 pb-20">
 
-    <!-- 双端口登录界面 -->
     <div id="login-gate">
         <div class="w-full max-w-sm space-y-6">
             <div class="text-center mb-10">
                 <div class="font-black text-3xl text-blue-700 italic tracking-tighter uppercase">GZ022.US.CI</div>
-                <p class="text-gray-400 text-[10px] mt-2 tracking-[0.2em] font-bold">OFFLINE SECURE SYSTEM</p>
+                <p class="text-gray-400 text-[10px] mt-2 tracking-[0.2em] font-bold">SECURE OFFLINE SYSTEM</p>
             </div>
 
-            <!-- 客户登录端口 -->
             <div class="glass-card p-6 rounded-[2rem] shadow-xl">
                 <h2 class="text-center font-black text-gray-800 mb-4 uppercase text-sm tracking-widest">客户登录入口</h2>
                 <input id="user-code-input" type="tel" pattern="[0-9]*" placeholder="请输入4位访问码" 
-                    class="w-full border-2 border-gray-100 p-4 mb-4 text-center font-bold text-xl outline-none rounded-2xl focus:border-blue-500 transition-all bg-gray-50">
+                    class="w-full border-2 border-gray-100 p-4 mb-4 text-center font-bold text-xl outline-none rounded-2xl focus:border-blue-500 bg-gray-50">
                 <button onclick="clientLogin()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg">立即进入</button>
             </div>
 
-            <!-- 管理员登录端口 -->
+            <!-- 管理员端口：已按要求去掉了“管理员端口”文字 -->
             <div class="glass-card p-6 rounded-[2rem] shadow-xl">
-                <h2 class="text-center font-black text-gray-400 mb-4 uppercase text-sm tracking-widest">管理员端口</h2>
                 <input id="admin-pwd-input" type="password" placeholder="ADMIN PASSWORD" 
-                    class="w-full border-2 border-gray-100 p-4 mb-4 text-center font-bold text-lg outline-none rounded-2xl focus:border-red-400 transition-all bg-gray-50">
-                <button onclick="adminLogin()" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-black active-scale shadow-lg">管理登录</button>
+                    class="w-full border-2 border-gray-100 p-4 mb-4 text-center font-bold text-lg outline-none rounded-2xl focus:border-red-400 bg-gray-50">
+                <!-- 已按要求将“管理登录”改为“登录” -->
+                <button onclick="adminLogin()" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-black active-scale shadow-lg">登录</button>
             </div>
             
-            <p id="login-err" class="text-red-500 text-center text-xs font-bold hidden uppercase">验证失败：请检查输入内容</p>
+            <p id="login-err" class="text-red-500 text-center text-xs font-bold hidden uppercase">验证失败或密码已过期</p>
         </div>
     </div>
 
-    <!-- 主界面导航 -->
     <header class="bg-white/90 backdrop-blur-md p-4 flex justify-between items-center border-b sticky top-0 z-50">
         <div class="font-black text-blue-700 italic tracking-tighter text-lg">GZ022.US.CI</div>
         <div id="admin-panel" class="hidden flex gap-2">
+            <input type="file" id="photo-upload" class="hidden" accept="image/*" multiple onchange="handlePhotoUpload()">
+            <button onclick="document.getElementById('photo-upload').click()" class="bg-blue-600 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-sm active-scale">上传</button>
             <button onclick="generateLocalCode()" class="bg-green-600 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-sm active-scale">生成密码</button>
             <button onclick="logout()" class="text-[10px] font-bold text-red-500 border border-red-100 px-4 py-2 rounded-full active-scale">退出</button>
         </div>
     </header>
 
-    <!-- 内容展示区 -->
     <main id="content-area" class="p-4 space-y-8 max-w-xl mx-auto"></main>
 
     <script>
         const ADMIN_PASS = "admin2020";
+        const CODE_EXPIRE_TIME = 20 * 60 * 1000; // 20分钟有效期
 
-        // 1. 本地密码库初始化 (Fisher-Yates 随机算法)
         function initCodePool() {
             if (!localStorage.getItem('GZ_POOL')) {
                 let codes = [];
                 for (let i = 1000; i <= 9999; i++) codes.push(i.toString());
-                // 洗牌算法确保完全随机
                 for (let i = codes.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [codes[i], codes[j]] = [codes[j], codes[i]];
                 }
                 localStorage.setItem('GZ_POOL', JSON.stringify(codes.slice(0, 2000)));
                 localStorage.setItem('GZ_INDEX', '0');
+                localStorage.setItem('GZ_ACTIVE_CODES', JSON.stringify({})); // 存储：{code: timestamp}
             }
         }
 
-        // 2. 客户登录逻辑
+        function generateLocalCode() {
+            const pool = JSON.parse(localStorage.getItem('GZ_POOL'));
+            const index = parseInt(localStorage.getItem('GZ_INDEX'));
+            const activeCodes = JSON.parse(localStorage.getItem('GZ_ACTIVE_CODES') || "{}");
+
+            if (index >= pool.length) {
+                alert("库存已用尽");
+                return;
+            }
+
+            const code = pool[index];
+            activeCodes[code] = Date.now(); // 记录生成时间戳
+            
+            localStorage.setItem('GZ_INDEX', (index + 1).toString());
+            localStorage.setItem('GZ_ACTIVE_CODES', JSON.stringify(activeCodes));
+            
+            alert(`【生成成功】\n随机密码：${code}\n有效期：20分钟`);
+        }
+
         function clientLogin() {
             const val = document.getElementById('user-code-input').value.trim();
-            if (val.length === 4 && !isNaN(val)) {
-                sessionStorage.setItem('gz_role', 'USER');
-                location.reload();
+            const activeCodes = JSON.parse(localStorage.getItem('GZ_ACTIVE_CODES') || "{}");
+            
+            if (activeCodes[val]) {
+                const timePassed = Date.now() - activeCodes[val];
+                if (timePassed < CODE_EXPIRE_TIME) { // 检查是否在20分钟内
+                    sessionStorage.setItem('gz_role', 'USER');
+                    location.reload();
+                } else {
+                    delete activeCodes[val]; // 删除失效密码
+                    localStorage.setItem('GZ_ACTIVE_CODES', JSON.stringify(activeCodes));
+                    showError("密码已过期（20分钟限时）");
+                }
             } else {
-                showError();
+                showError("无效的访问码");
             }
         }
 
-        // 3. 管理员登录逻辑
         function adminLogin() {
             const val = document.getElementById('admin-pwd-input').value.trim();
             if (val === ADMIN_PASS) {
                 sessionStorage.setItem('gz_role', 'ADMIN');
                 location.reload();
             } else {
-                showError();
+                showError("管理密码错误");
             }
         }
 
-        // 4. 管理员功能：生成随机密码
-        function generateLocalCode() {
-            const pool = JSON.parse(localStorage.getItem('GZ_POOL'));
-            const index = parseInt(localStorage.getItem('GZ_INDEX'));
-
-            if (index >= pool.length) {
-                if(confirm("本地库已用尽，是否重置？")) {
-                    localStorage.removeItem('GZ_POOL');
-                    initCodePool();
-                    alert("密码库已刷新");
-                }
-                return;
-            }
-
-            const code = pool[index];
-            localStorage.setItem('GZ_INDEX', (index + 1).toString());
-            alert(`【生成成功】\n随机访问码：${code}\n剩余库存：${pool.length - index - 1}`);
+        // 修复照片上传失败问题：适配本地存储预览
+        function handlePhotoUpload() {
+            const files = document.getElementById('photo-upload').files;
+            let localGallery = JSON.parse(localStorage.getItem('GZ_GALLERY') || "[]");
+            
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    localGallery.unshift({
+                        url: e.target.result,
+                        id: Date.now() + Math.random()
+                    });
+                    localStorage.setItem('GZ_GALLERY', JSON.stringify(localGallery.slice(0, 50))); // 本地预览限制50张
+                    renderContent();
+                };
+                reader.readAsDataURL(file);
+            });
         }
 
-        // 页面初始化
         window.onload = () => {
             initCodePool();
             const role = sessionStorage.getItem('gz_role');
@@ -125,22 +148,33 @@
         };
 
         function renderContent() {
-            // 此处可填入您的图片数据
-            const data = [
-                {url: "https://your-image-link.jpg", desc: "ITEM 01"}
-            ];
-            document.getElementById('content-area').innerHTML = data.map(item => `
-                <div class="bg-white rounded-[1.5rem] shadow-sm border border-gray-100 overflow-hidden">
-                    <img src="${item.url}" class="w-full h-auto block" onerror="this.src='https://via.placeholder.com/800x500?text=IMAGE+LOADING'">
-                    <div class="p-4 font-bold text-xs text-gray-400 italic">${item.desc}</div>
+            const localGallery = JSON.parse(localStorage.getItem('GZ_GALLERY') || "[]");
+            const grid = document.getElementById('content-area');
+            if (localGallery.length === 0) {
+                grid.innerHTML = '<p class="text-center text-gray-300 py-20 font-bold">暂无内容，请上传</p>';
+                return;
+            }
+            grid.innerHTML = localGallery.map(item => `
+                <div class="bg-white rounded-[1.5rem] shadow-sm border border-gray-100 overflow-hidden relative">
+                    <img src="${item.url}" class="w-full h-auto block">
+                    ${sessionStorage.getItem('gz_role') === 'ADMIN' ? 
+                        `<button onclick="deleteImg(${item.id})" class="absolute top-4 right-4 bg-red-500 text-white text-[8px] px-2 py-1 rounded-full font-bold">删除</button>` : ''}
                 </div>
             `).join('');
         }
 
-        function showError() {
+        function deleteImg(id) {
+            let localGallery = JSON.parse(localStorage.getItem('GZ_GALLERY') || "[]");
+            localGallery = localGallery.filter(item => item.id !== id);
+            localStorage.setItem('GZ_GALLERY', JSON.stringify(localGallery));
+            renderContent();
+        }
+
+        function showError(msg) {
             const err = document.getElementById('login-err');
+            err.innerText = msg;
             err.classList.remove('hidden');
-            setTimeout(() => err.classList.add('hidden'), 2000);
+            setTimeout(() => err.classList.add('hidden'), 3000);
         }
 
         function logout() { sessionStorage.clear(); location.reload(); }
