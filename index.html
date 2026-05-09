@@ -2,114 +2,148 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GZ022 深度诊断系统</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>GZ022 离线管理系统</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { -webkit-tap-highlight-color: transparent; }
-        #access-screen { position: fixed; inset: 0; background: #f9fafb; display: flex; align-items: center; justify-content: center; z-index: 9999; }
+        body { -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; }
+        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(229, 231, 235, 0.5); }
+        #login-gate { position: fixed; inset: 0; background: #f3f4f6; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .active-scale:active { transform: scale(0.95); transition: 0.1s; }
     </style>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-50 pb-20">
 
-    <div id="access-screen">
-        <div class="w-full max-w-xs p-8 text-center bg-white rounded-3xl shadow-xl">
-            <div class="font-black text-2xl text-blue-700 italic mb-8">GZ022.US.CI</div>
-            <input id="access-code" type="text" placeholder="输入访问码或admin2020" class="w-full border-2 p-4 mb-4 text-center font-bold rounded-2xl outline-none">
-            <button onclick="verifyAccess()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black mb-4">进入系统</button>
-            <hr class="my-4">
-            <p class="text-[10px] text-gray-400 mb-2 uppercase">诊断工具 (管理员专用)</p>
-            <button onclick="generateNewCode()" class="w-full bg-green-600 text-white py-3 rounded-2xl font-bold text-sm">开始取码诊断</button>
+    <!-- 双端口登录界面 -->
+    <div id="login-gate">
+        <div class="w-full max-w-sm space-y-6">
+            <div class="text-center mb-10">
+                <div class="font-black text-3xl text-blue-700 italic tracking-tighter uppercase">GZ022.US.CI</div>
+                <p class="text-gray-400 text-[10px] mt-2 tracking-[0.2em] font-bold">OFFLINE SECURE SYSTEM</p>
+            </div>
+
+            <!-- 客户登录端口 -->
+            <div class="glass-card p-6 rounded-[2rem] shadow-xl">
+                <h2 class="text-center font-black text-gray-800 mb-4 uppercase text-sm tracking-widest">客户登录入口</h2>
+                <input id="user-code-input" type="tel" pattern="[0-9]*" placeholder="请输入4位访问码" 
+                    class="w-full border-2 border-gray-100 p-4 mb-4 text-center font-bold text-xl outline-none rounded-2xl focus:border-blue-500 transition-all bg-gray-50">
+                <button onclick="clientLogin()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg">立即进入</button>
+            </div>
+
+            <!-- 管理员登录端口 -->
+            <div class="glass-card p-6 rounded-[2rem] shadow-xl">
+                <h2 class="text-center font-black text-gray-400 mb-4 uppercase text-sm tracking-widest">管理员端口</h2>
+                <input id="admin-pwd-input" type="password" placeholder="ADMIN PASSWORD" 
+                    class="w-full border-2 border-gray-100 p-4 mb-4 text-center font-bold text-lg outline-none rounded-2xl focus:border-red-400 transition-all bg-gray-50">
+                <button onclick="adminLogin()" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-black active-scale shadow-lg">管理登录</button>
+            </div>
+            
+            <p id="login-err" class="text-red-500 text-center text-xs font-bold hidden uppercase">验证失败：请检查输入内容</p>
         </div>
     </div>
 
-    <div id="main-grid" class="p-4 space-y-8 hidden"></div>
+    <!-- 主界面导航 -->
+    <header class="bg-white/90 backdrop-blur-md p-4 flex justify-between items-center border-b sticky top-0 z-50">
+        <div class="font-black text-blue-700 italic tracking-tighter text-lg">GZ022.US.CI</div>
+        <div id="admin-panel" class="hidden flex gap-2">
+            <button onclick="generateLocalCode()" class="bg-green-600 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-sm active-scale">生成密码</button>
+            <button onclick="logout()" class="text-[10px] font-bold text-red-500 border border-red-100 px-4 py-2 rounded-full active-scale">退出</button>
+        </div>
+    </header>
+
+    <!-- 内容展示区 -->
+    <main id="content-area" class="p-4 space-y-8 max-w-xl mx-auto"></main>
 
     <script>
-        const SB_URL = "https://sdqnikpywinxhjhnoshg.supabase.co";
-        const SB_KEY = "sb_publishable_FaGea_hGHaXCNE-mm5kIpA_EWjyjXEV";
-        const client = supabase.createClient(SB_URL, SB_KEY);
         const ADMIN_PASS = "admin2020";
 
-        // 诊断逻辑函数
-        async function generateNewCode() {
-            const startTime = Date.now();
-            try {
-                // 1. 尝试直接拉取数据
-                const { data, error, count, status, statusText } = await client
-                    .from('access_codes')
-                    .select('*', { count: 'exact' })
-                    .eq('is_used', false)
-                    .order('id', { ascending: true })
-                    .limit(1)
-                    .maybeSingle();
-
-                const duration = Date.now() - startTime;
-
-                let report = `【深度诊断报告】\n`;
-                report += `------------------------\n`;
-                report += `1. 响应耗时: ${duration}ms\n`;
-                report += `2. HTTP状态码: ${status} (${statusText})\n`;
-
-                if (error) {
-                    report += `3. 错误类型: 数据库拒绝访问\n`;
-                    report += `4. 错误代码: ${error.code}\n`;
-                    report += `5. 详细信息: ${error.message}\n`;
-                    report += `6. 提示建议: 请检查 RLS 或 SQL 权限授予。`;
-                } else if (!data) {
-                    report += `3. 错误类型: 数据透视为空\n`;
-                    report += `4. 库容总计: ${count}\n`;
-                    report += `5. 提示建议: 表里确实没数据，或 API 缓存了旧 Schema。请运行 NOTIFY 脚本。`;
-                } else {
-                    report += `3. 状态: 成功获取\n`;
-                    report += `4. 提取密码: ${data.code}\n`;
-                    report += `5. 剩余库存: ${count}\n`;
+        // 1. 本地密码库初始化 (Fisher-Yates 随机算法)
+        function initCodePool() {
+            if (!localStorage.getItem('GZ_POOL')) {
+                let codes = [];
+                for (let i = 1000; i <= 9999; i++) codes.push(i.toString());
+                // 洗牌算法确保完全随机
+                for (let i = codes.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [codes[i], codes[j]] = [codes[j], codes[i]];
                 }
-
-                alert(report);
-                console.log("完整诊断对象:", { data, error, count, status });
-
-            } catch (e) {
-                alert(`【网络层诊断报错】\n信息: ${e.message}\n可能原因: API URL 错误或手机端网络拦截。`);
+                localStorage.setItem('GZ_POOL', JSON.stringify(codes.slice(0, 2000)));
+                localStorage.setItem('GZ_INDEX', '0');
             }
         }
 
-        async function verifyAccess() {
-            const input = document.getElementById('access-code').value.trim();
-            if (input === ADMIN_PASS) {
-                sessionStorage.setItem('gz_auth', ADMIN_PASS);
+        // 2. 客户登录逻辑
+        function clientLogin() {
+            const val = document.getElementById('user-code-input').value.trim();
+            if (val.length === 4 && !isNaN(val)) {
+                sessionStorage.setItem('gz_role', 'USER');
                 location.reload();
             } else {
-                // 普通用户验证逻辑
-                const { data } = await client.from('access_codes').select('*').eq('code', input).eq('is_used', false).maybeSingle();
-                if (data) {
-                    await client.from('access_codes').update({ activated_at: new Date().toISOString(), is_used: true }).eq('id', data.id);
-                    sessionStorage.setItem('gz_auth', 'USER');
-                    location.reload();
-                } else {
-                    alert("验证失败");
-                }
+                showError();
             }
         }
 
+        // 3. 管理员登录逻辑
+        function adminLogin() {
+            const val = document.getElementById('admin-pwd-input').value.trim();
+            if (val === ADMIN_PASS) {
+                sessionStorage.setItem('gz_role', 'ADMIN');
+                location.reload();
+            } else {
+                showError();
+            }
+        }
+
+        // 4. 管理员功能：生成随机密码
+        function generateLocalCode() {
+            const pool = JSON.parse(localStorage.getItem('GZ_POOL'));
+            const index = parseInt(localStorage.getItem('GZ_INDEX'));
+
+            if (index >= pool.length) {
+                if(confirm("本地库已用尽，是否重置？")) {
+                    localStorage.removeItem('GZ_POOL');
+                    initCodePool();
+                    alert("密码库已刷新");
+                }
+                return;
+            }
+
+            const code = pool[index];
+            localStorage.setItem('GZ_INDEX', (index + 1).toString());
+            alert(`【生成成功】\n随机访问码：${code}\n剩余库存：${pool.length - index - 1}`);
+        }
+
+        // 页面初始化
         window.onload = () => {
-            const auth = sessionStorage.getItem('gz_auth');
-            if (auth) {
-                document.getElementById('access-screen').style.display = 'none';
-                document.getElementById('main-grid').classList.remove('hidden');
-                loadData();
+            initCodePool();
+            const role = sessionStorage.getItem('gz_role');
+            if (role) {
+                document.getElementById('login-gate').style.display = 'none';
+                if (role === 'ADMIN') document.getElementById('admin-panel').classList.remove('hidden');
+                renderContent();
             }
         };
 
-        async function loadData() {
-            const { data } = await client.from('gallery').select('*').order('created_at', { ascending: true });
-            document.getElementById('main-grid').innerHTML = (data || []).map(item => `
-                <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
-                    <img src="${item.img_url}" class="w-full h-auto">
+        function renderContent() {
+            // 此处可填入您的图片数据
+            const data = [
+                {url: "https://your-image-link.jpg", desc: "ITEM 01"}
+            ];
+            document.getElementById('content-area').innerHTML = data.map(item => `
+                <div class="bg-white rounded-[1.5rem] shadow-sm border border-gray-100 overflow-hidden">
+                    <img src="${item.url}" class="w-full h-auto block" onerror="this.src='https://via.placeholder.com/800x500?text=IMAGE+LOADING'">
+                    <div class="p-4 font-bold text-xs text-gray-400 italic">${item.desc}</div>
                 </div>
             `).join('');
         }
+
+        function showError() {
+            const err = document.getElementById('login-err');
+            err.classList.remove('hidden');
+            setTimeout(() => err.classList.add('hidden'), 2000);
+        }
+
+        function logout() { sessionStorage.clear(); location.reload(); }
     </script>
 </body>
 </html>
