@@ -23,7 +23,8 @@
             </div>
 
             <div class="glass-card p-6 rounded-[2rem] shadow-xl">
-                <h2 class="text-center font-black text-gray-800 mb-4 uppercase text-sm tracking-widest">客户登录入口</h2>
+                <!-- 已按要求修改文字为：看照片入口 -->
+                <h2 class="text-center font-black text-gray-800 mb-4 uppercase text-sm tracking-widest">看照片入口</h2>
                 <input id="user-code-input" type="tel" pattern="[0-9]*" placeholder="请输入4位访问码" 
                     class="w-full border-2 border-gray-100 p-4 mb-4 text-center font-bold text-xl outline-none rounded-2xl focus:border-blue-500 bg-gray-50">
                 <button onclick="clientLogin()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg">立即进入</button>
@@ -83,7 +84,6 @@
             }
         }
 
-        // 打开上传对话框
         function openUploadDialog() {
             const file = document.getElementById('photo-upload').files[0];
             if (!file) return;
@@ -97,7 +97,6 @@
             reader.readAsDataURL(file);
         }
 
-        // 确定上传并保存描述
         function confirmUpload() {
             const desc = document.getElementById('photo-desc-input').value.trim();
             let localGallery = JSON.parse(localStorage.getItem('GZ_GALLERY') || "[]");
@@ -171,7 +170,6 @@
             grid.innerHTML = localGallery.map(item => `
                 <div class="bg-white rounded-[1.5rem] shadow-sm border border-gray-100 overflow-hidden relative">
                     <img src="${item.url}" class="w-full h-auto block">
-                    <!-- 描述展示区 -->
                     <div class="p-4 bg-gray-50 border-t border-gray-50">
                         <p class="text-gray-800 text-sm font-bold leading-relaxed">${item.desc}</p>
                     </div>
