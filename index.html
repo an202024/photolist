@@ -69,7 +69,7 @@
         
         const _client = supabase.createClient(SB_URL, SB_KEY);
         const ADMIN_PASS = "admin2020";
-        const EXPIRE_LIMIT = 20 * 60 * 1000;
+        const EXPIRE_LIMIT = 20 * 60 * 1000; // 20分钟
         let pendingFile = null;
         let currentCount = 0;
 
@@ -102,11 +102,10 @@
                 const fName = `${Date.now()}_${pendingFile.name}`;
                 await _client.storage.from('photos').upload(fName, pendingFile);
                 const { data: urlData } = _client.storage.from('photos').getPublicUrl(fName);
-                const groupLabel = (currentCount + 1) <= 40 ? "1" : "2";
                 await _client.from('photo_list').insert([{ 
                     url: urlData.publicUrl, 
                     description: desc,
-                    access_code: groupLabel,
+                    access_code: '1', // 默认统一标识
                     is_hidden: false 
                 }]);
                 location.reload();
@@ -118,20 +117,27 @@
             if(!error) renderContent();
         }
 
+        // 核心修复：clientLogin 现在只负责验证存在和过期
         function clientLogin() {
             const val = document.getElementById('user-code-input').value.trim();
             const map = JSON.parse(localStorage.getItem('GZ_ACTIVE_MAP') || "{}");
+            
+            // 只要号码池里有这个码，且没超过20分钟
             if(map[val] && (Date.now() - map[val] < EXPIRE_LIMIT)) {
                 sessionStorage.setItem('gz_role', 'USER');
                 location.reload();
-            } else showError("访问码无效或过期");
+            } else {
+                showError("访问码无效或已过期");
+            }
         }
 
         function adminLogin() {
             if(document.getElementById('admin-pwd-input').value.trim() === ADMIN_PASS) {
                 sessionStorage.setItem('gz_role', 'ADMIN');
                 location.reload();
-            } else showError("管理密码错误");
+            } else {
+                showError("管理密码错误");
+            }
         }
 
         async function renderContent() {
@@ -180,7 +186,8 @@
             const p = JSON.parse(localStorage.getItem('GZ_POOL'));
             const i = parseInt(localStorage.getItem('GZ_INDEX'));
             const a = JSON.parse(localStorage.getItem('GZ_ACTIVE_MAP') || "{}");
-            const code = p[i]; a[code] = Date.now();
+            const code = p[i]; 
+            a[code] = Date.now(); // 记录生成的时间点
             localStorage.setItem('GZ_INDEX', (i+1).toString());
             localStorage.setItem('GZ_ACTIVE_MAP', JSON.stringify(a));
             alert(`【生成成功】\n随机码：${code}\n说明：有效期20分钟。`);
