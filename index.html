@@ -53,10 +53,13 @@
 
     <header class="bg-white/80 backdrop-blur-md p-4 flex justify-between items-center border-b sticky top-0 z-50">
         <div class="font-black text-blue-700 italic text-xl tracking-tighter">GZ022.US.CI</div>
-        <div id="admin-panel" class="hidden flex gap-2">
-            <input type="file" id="photo-upload" class="hidden" accept="image/*" onchange="openUploadDialog()">
-            <button onclick="document.getElementById('photo-upload').click()" class="bg-blue-600 text-white px-4 py-2 rounded-full text-[10px] font-bold active-scale shadow-sm">上传图片</button>
-            <button onclick="generateLocalCode()" class="bg-green-600 text-white px-4 py-2 rounded-full text-[10px] font-bold active-scale shadow-sm">生成码</button>
+        
+        <div id="action-panel" class="hidden flex gap-2">
+            <div id="admin-tools" class="hidden flex gap-2">
+                <input type="file" id="photo-upload" class="hidden" accept="image/*" onchange="openUploadDialog()">
+                <button onclick="document.getElementById('photo-upload').click()" class="bg-blue-600 text-white px-4 py-2 rounded-full text-[10px] font-bold active-scale shadow-sm">上传图片</button>
+                <button onclick="generateLocalCode()" class="bg-green-600 text-white px-4 py-2 rounded-full text-[10px] font-bold active-scale shadow-sm">生成码</button>
+            </div>
             <button onclick="logout()" class="text-[10px] font-bold text-red-500 border border-red-100 px-4 py-2 rounded-full active-scale">退出</button>
         </div>
     </header>
@@ -69,7 +72,7 @@
         
         const _client = supabase.createClient(SB_URL, SB_KEY);
         const ADMIN_PASS = "admin2020";
-        const EXPIRE_LIMIT = 20 * 60 * 1000; // 20分钟
+        const EXPIRE_LIMIT = 20 * 60 * 1000;
         let pendingFile = null;
         let currentCount = 0;
 
@@ -105,7 +108,7 @@
                 await _client.from('photo_list').insert([{ 
                     url: urlData.publicUrl, 
                     description: desc,
-                    access_code: '1', // 默认统一标识
+                    access_code: '1',
                     is_hidden: false 
                 }]);
                 location.reload();
@@ -117,12 +120,9 @@
             if(!error) renderContent();
         }
 
-        // 核心修复：clientLogin 现在只负责验证存在和过期
         function clientLogin() {
             const val = document.getElementById('user-code-input').value.trim();
             const map = JSON.parse(localStorage.getItem('GZ_ACTIVE_MAP') || "{}");
-            
-            // 只要号码池里有这个码，且没超过20分钟
             if(map[val] && (Date.now() - map[val] < EXPIRE_LIMIT)) {
                 sessionStorage.setItem('gz_role', 'USER');
                 location.reload();
@@ -186,8 +186,7 @@
             const p = JSON.parse(localStorage.getItem('GZ_POOL'));
             const i = parseInt(localStorage.getItem('GZ_INDEX'));
             const a = JSON.parse(localStorage.getItem('GZ_ACTIVE_MAP') || "{}");
-            const code = p[i]; 
-            a[code] = Date.now(); // 记录生成的时间点
+            const code = p[i]; a[code] = Date.now();
             localStorage.setItem('GZ_INDEX', (i+1).toString());
             localStorage.setItem('GZ_ACTIVE_MAP', JSON.stringify(a));
             alert(`【生成成功】\n随机码：${code}\n说明：有效期20分钟。`);
@@ -195,9 +194,13 @@
 
         window.onload = () => {
             init();
-            if(sessionStorage.getItem('gz_role')) {
+            const role = sessionStorage.getItem('gz_role');
+            if(role) {
                 document.getElementById('login-gate').style.display = 'none';
-                if(sessionStorage.getItem('gz_role') === 'ADMIN') document.getElementById('admin-panel').classList.remove('hidden');
+                document.getElementById('action-panel').classList.remove('hidden');
+                if(role === 'ADMIN') {
+                    document.getElementById('admin-tools').classList.remove('hidden');
+                }
                 renderContent();
             }
         };
