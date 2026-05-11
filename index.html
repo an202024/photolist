@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GZ022 系统修复版</title>
+    <title>GZ022 跨端同步最终版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -21,20 +21,20 @@
         <div class="w-full max-w-sm space-y-6">
             <div class="text-center">
                 <div class="font-black text-3xl text-blue-700 italic uppercase">GZ022.US.CI</div>
-                <p class="text-[10px] text-gray-400 font-bold tracking-[0.3em] mt-1 uppercase">Advanced 120-Slot System</p>
+                <p class="text-[10px] text-gray-400 font-bold tracking-[0.3em] mt-1 uppercase">Cloud Sync System</p>
             </div>
 
             <div class="glass-card p-6 rounded-[2.5rem] shadow-2xl text-center border-t-4 border-blue-500">
                 <h2 class="font-black text-blue-600 mb-5 uppercase text-xl italic">看照片入口</h2>
                 <input id="user-code-input" type="tel" placeholder="请输入4位访问码" class="w-full border-2 p-4 mb-4 text-center font-bold text-2xl rounded-2xl outline-none focus:border-blue-500 bg-white">
-                <button onclick="clientLogin()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg text-xl">验证并进入</button>
+                <button id="login-btn" onclick="clientLogin()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg text-xl">验证并进入</button>
             </div>
 
             <div class="glass-card p-6 rounded-[2.5rem] shadow-xl">
                 <input id="admin-pwd-input" type="password" placeholder="ADMIN PASSWORD" class="w-full border-2 p-4 mb-4 text-center font-bold text-lg rounded-2xl outline-none focus:border-red-400 bg-white">
                 <button onclick="adminLogin()" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-black active-scale shadow-lg uppercase">管理登录</button>
             </div>
-            <p id="login-err" class="text-red-500 text-center text-[10px] font-bold hidden uppercase tracking-widest">验证失败或已过期</p>
+            <p id="login-err" class="text-red-500 text-center text-[10px] font-bold hidden uppercase tracking-widest">密码无效或已过期</p>
         </div>
     </div>
 
@@ -57,7 +57,7 @@
             <div id="admin-tools" class="hidden flex gap-2">
                 <input type="file" id="photo-upload" class="hidden" accept="image/*" onchange="openUploadDialog()">
                 <button onclick="document.getElementById('photo-upload').click()" class="bg-blue-600 text-white px-4 py-2 rounded-full text-[10px] font-bold active-scale shadow-sm">上传图片</button>
-                <button onclick="generateLocalCode()" class="bg-green-600 text-white px-4 py-2 rounded-full text-[10px] font-bold active-scale shadow-sm">生成码</button>
+                <button onclick="generateCloudCode()" class="bg-green-600 text-white px-4 py-2 rounded-full text-[10px] font-bold active-scale shadow-sm">生成随机码</button>
             </div>
             <button onclick="logout()" class="text-[10px] font-bold text-red-500 border border-red-100 px-4 py-2 rounded-full active-scale">退出</button>
         </div>
@@ -68,27 +68,62 @@
     <script>
         const SB_URL = 'https://hjmpzvqehyxlsnjieihx.supabase.co';
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqbXB6dnFlaHl4bHNuamllaWh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyNjE4OTEsImV4cCI6MjA5MDgzNzg5MX0.9sEHRljY14jgsONe9ATFnPJYUAaj7BxCKsqvCp6Ft1s';
-        
         const _client = supabase.createClient(SB_URL, SB_KEY);
         const ADMIN_PASS = "admin2020";
-        const EXPIRE_LIMIT = 20 * 60 * 1000;
-        let pendingFile = null;
-        let currentCount = 0;
 
-        function init() {
-            if(!localStorage.getItem('GZ_POOL')) {
-                let s=[]; for(let i=1000; i<=9999; i++) s.push(i.toString());
-                for(let i=s.length-1; i>0; i--) { const j=Math.floor(Math.random()*(i+1)); [s[i],s[j]]=[s[j],s[i]]; }
-                localStorage.setItem('GZ_POOL', JSON.stringify(s.slice(0, 1000)));
-                localStorage.setItem('GZ_INDEX', '0');
-                localStorage.setItem('GZ_ACTIVE_MAP', JSON.stringify({}));
+        // --- 云端登录：跨手机同步的核心 ---
+        async function clientLogin() {
+            const val = document.getElementById('user-code-input').value.trim();
+            const btn = document.getElementById('login-btn');
+            if(!val) return;
+            
+            btn.disabled = true; btn.innerText = "云端验证中...";
+            
+            // 查询云端是否存在该暗号
+            const { data } = await _client
+                .from('photo_list')
+                .select('id')
+                .eq('access_code', 'PASS_' + val)
+                .limit(1);
+
+            if (data && data.length > 0) {
+                sessionStorage.setItem('gz_role', 'USER');
+                location.reload();
+            } else {
+                showError("访问码无效或已过期");
+                btn.disabled = false; btn.innerText = "验证并进入";
             }
+        }
+
+        // --- 云端发码：跨手机同步的核心 ---
+        async function generateCloudCode() {
+            const code = Math.floor(1000 + Math.random() * 9000).toString();
+            
+            // 1. 删除云端旧的密码记录
+            await _client.from('photo_list').delete().like('access_code', 'PASS_%');
+            
+            // 2. 插入新的云端暗号
+            const { error } = await _client.from('photo_list').insert([{ 
+                url: 'INTERNAL', 
+                description: 'PASS_RECORD',
+                access_code: 'PASS_' + code,
+                is_hidden: true 
+            }]);
+
+            if(!error) alert(`【跨设备通用随机码】\n号码：${code}\n说明：现在任何手机输入此码均可登录。`);
+            else alert("云端同步失败，请检查网络");
+        }
+
+        function adminLogin() {
+            if(document.getElementById('admin-pwd-input').value.trim() === ADMIN_PASS) {
+                sessionStorage.setItem('gz_role', 'ADMIN');
+                location.reload();
+            } else showError("管理密码错误");
         }
 
         async function openUploadDialog() {
             const { count } = await _client.from('photo_list').select('*', { count: 'exact', head: true });
             currentCount = count || 0;
-            if(currentCount >= 120) return alert("达到120张上限");
             pendingFile = document.getElementById('photo-upload').files[0];
             if(!pendingFile) return;
             document.getElementById('pos-display').innerText = `NO. ${currentCount + 1} / 120`;
@@ -114,37 +149,10 @@
             } catch (e) { alert("同步失败"); btn.disabled = false; btn.innerText = "确定上传并绑定"; }
         }
 
-        async function toggleHide(id, currentStatus) {
-            const { error } = await _client.from('photo_list').update({ is_hidden: !currentStatus }).eq('id', id);
-            if(!error) renderContent();
-        }
-
-        // --- 重点修复：客户登录逻辑 ---
-        function clientLogin() {
-            const val = document.getElementById('user-code-input').value.trim();
-            const map = JSON.parse(localStorage.getItem('GZ_ACTIVE_MAP') || "{}");
-            
-            // 只要号码池里有这个码，且没超过20分钟，就允许进入
-            if (map[val] && (Date.now() - map[val] < EXPIRE_LIMIT)) {
-                sessionStorage.setItem('gz_role', 'USER');
-                location.reload();
-            } else {
-                showError("访问码无效或已过期");
-            }
-        }
-
-        function adminLogin() {
-            if(document.getElementById('admin-pwd-input').value.trim() === ADMIN_PASS) {
-                sessionStorage.setItem('gz_role', 'ADMIN');
-                location.reload();
-            } else {
-                showError("管理密码错误");
-            }
-        }
-
         async function renderContent() {
             const role = sessionStorage.getItem('gz_role');
-            let query = _client.from('photo_list').select('*').order('created_at', { ascending: true });
+            // 关键：排除掉 url 为 INTERNAL 的密码记录
+            let query = _client.from('photo_list').select('*').neq('url', 'INTERNAL').order('created_at', { ascending: true });
             if(role === 'USER') query = query.eq('is_hidden', false);
 
             const { data } = await query;
@@ -173,6 +181,11 @@
             `).join('');
         }
 
+        async function toggleHide(id, currentStatus) {
+            await _client.from('photo_list').update({ is_hidden: !currentStatus }).eq('id', id);
+            renderContent();
+        }
+
         async function deletePhoto(id, url) {
             if(!confirm("确定永久删除这张照片吗？")) return;
             const path = url.split('/').pop();
@@ -181,18 +194,7 @@
             location.reload();
         }
 
-        function generateLocalCode() {
-            const p = JSON.parse(localStorage.getItem('GZ_POOL'));
-            const i = parseInt(localStorage.getItem('GZ_INDEX'));
-            const a = JSON.parse(localStorage.getItem('GZ_ACTIVE_MAP') || "{}");
-            const code = p[i]; a[code] = Date.now();
-            localStorage.setItem('GZ_INDEX', (i+1).toString());
-            localStorage.setItem('GZ_ACTIVE_MAP', JSON.stringify(a));
-            alert(`【生成成功】\n随机码：${code}\n说明：有效期20分钟。`);
-        }
-
         window.onload = () => {
-            init();
             const role = sessionStorage.getItem('gz_role');
             if(role) {
                 document.getElementById('login-gate').style.display = 'none';
@@ -202,7 +204,7 @@
             }
         };
         function closeUploadModal() { 
-            document.getElementById('upload-modal').style.display = 'none';
+            document.getElementById('upload-modal').style.display = 'none'; 
             document.getElementById('photo-upload').value = "";
         }
         function showError(m) { const e = document.getElementById('login-err'); e.innerText = m; e.classList.remove('hidden'); setTimeout(()=>e.classList.add('hidden'), 3000); }
