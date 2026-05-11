@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GZ022 跨端同步最终版</title>
+    <title>GZ022 云同步最终版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -23,18 +23,16 @@
                 <div class="font-black text-3xl text-blue-700 italic uppercase">GZ022.US.CI</div>
                 <p class="text-[10px] text-gray-400 font-bold tracking-[0.3em] mt-1 uppercase">Cloud Sync System</p>
             </div>
-
             <div class="glass-card p-6 rounded-[2.5rem] shadow-2xl text-center border-t-4 border-blue-500">
-                <h2 class="font-black text-blue-600 mb-5 uppercase text-xl italic">看照片入口</h2>
+                <h2 class="font-black text-blue-600 mb-5 uppercase text-xl italic italic">看照片入口</h2>
                 <input id="user-code-input" type="tel" placeholder="请输入4位访问码" class="w-full border-2 p-4 mb-4 text-center font-bold text-2xl rounded-2xl outline-none focus:border-blue-500 bg-white">
                 <button id="login-btn" onclick="clientLogin()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg text-xl">验证并进入</button>
             </div>
-
             <div class="glass-card p-6 rounded-[2.5rem] shadow-xl">
                 <input id="admin-pwd-input" type="password" placeholder="ADMIN PASSWORD" class="w-full border-2 p-4 mb-4 text-center font-bold text-lg rounded-2xl outline-none focus:border-red-400 bg-white">
                 <button onclick="adminLogin()" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-black active-scale shadow-lg uppercase">管理登录</button>
             </div>
-            <p id="login-err" class="text-red-500 text-center text-[10px] font-bold hidden uppercase tracking-widest">密码无效或已过期</p>
+            <p id="login-err" class="text-red-500 text-center text-[10px] font-bold hidden uppercase tracking-widest">访问码无效或已过期</p>
         </div>
     </div>
 
@@ -71,20 +69,14 @@
         const _client = supabase.createClient(SB_URL, SB_KEY);
         const ADMIN_PASS = "admin2020";
 
-        // --- 云端登录：跨手机同步的核心 ---
+        // 核心修复：云端登录逻辑（跨设备通用）
         async function clientLogin() {
             const val = document.getElementById('user-code-input').value.trim();
             const btn = document.getElementById('login-btn');
             if(!val) return;
-            
             btn.disabled = true; btn.innerText = "云端验证中...";
             
-            // 查询云端是否存在该暗号
-            const { data } = await _client
-                .from('photo_list')
-                .select('id')
-                .eq('access_code', 'PASS_' + val)
-                .limit(1);
+            const { data } = await _client.from('photo_list').select('id').eq('access_code', 'PASS_' + val).limit(1);
 
             if (data && data.length > 0) {
                 sessionStorage.setItem('gz_role', 'USER');
@@ -95,14 +87,10 @@
             }
         }
 
-        // --- 云端发码：跨手机同步的核心 ---
+        // 核心修复：云端生成逻辑（跨设备通用）
         async function generateCloudCode() {
             const code = Math.floor(1000 + Math.random() * 9000).toString();
-            
-            // 1. 删除云端旧的密码记录
             await _client.from('photo_list').delete().like('access_code', 'PASS_%');
-            
-            // 2. 插入新的云端暗号
             const { error } = await _client.from('photo_list').insert([{ 
                 url: 'INTERNAL', 
                 description: 'PASS_RECORD',
@@ -110,8 +98,8 @@
                 is_hidden: true 
             }]);
 
-            if(!error) alert(`【跨设备通用随机码】\n号码：${code}\n说明：现在任何手机输入此码均可登录。`);
-            else alert("云端同步失败，请检查网络");
+            if(!error) alert(`【跨端通用随机码】\n号码：${code}\n说明：现在任何手机输入此码均可登录。`);
+            else alert("同步失败，请检查网络");
         }
 
         function adminLogin() {
@@ -146,12 +134,11 @@
                     is_hidden: false 
                 }]);
                 location.reload();
-            } catch (e) { alert("同步失败"); btn.disabled = false; btn.innerText = "确定上传并绑定"; }
+            } catch (e) { alert("上传失败"); btn.disabled = false; }
         }
 
         async function renderContent() {
             const role = sessionStorage.getItem('gz_role');
-            // 关键：排除掉 url 为 INTERNAL 的密码记录
             let query = _client.from('photo_list').select('*').neq('url', 'INTERNAL').order('created_at', { ascending: true });
             if(role === 'USER') query = query.eq('is_hidden', false);
 
@@ -171,7 +158,7 @@
                         ${role === 'ADMIN' ? `
                             <div class="mt-4 flex gap-2 border-t pt-4">
                                 <button onclick="toggleHide('${item.id}', ${item.is_hidden})" class="flex-1 py-2 rounded-xl text-[9px] font-black uppercase active-scale ${item.is_hidden ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500'}">
-                                    ${item.is_hidden ? '恢复上线' : '点击请假隐藏'}
+                                    ${item.is_hidden ? '恢复' : '隐藏'}
                                 </button>
                                 <button onclick="deletePhoto('${item.id}', '${item.url}')" class="px-4 py-2 bg-red-50 text-red-500 rounded-xl text-[9px] font-black active-scale shadow-sm">删除</button>
                             </div>
@@ -187,7 +174,7 @@
         }
 
         async function deletePhoto(id, url) {
-            if(!confirm("确定永久删除这张照片吗？")) return;
+            if(!confirm("确定永久删除？")) return;
             const path = url.split('/').pop();
             await _client.storage.from('photos').remove([path]);
             await _client.from('photo_list').delete().eq('id', id);
@@ -203,10 +190,7 @@
                 renderContent();
             }
         };
-        function closeUploadModal() { 
-            document.getElementById('upload-modal').style.display = 'none'; 
-            document.getElementById('photo-upload').value = "";
-        }
+        function closeUploadModal() { document.getElementById('upload-modal').style.display = 'none'; }
         function showError(m) { const e = document.getElementById('login-err'); e.innerText = m; e.classList.remove('hidden'); setTimeout(()=>e.classList.add('hidden'), 3000); }
         function logout() { sessionStorage.clear(); location.reload(); }
     </script>
