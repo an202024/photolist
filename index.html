@@ -18,16 +18,16 @@
 <body class="bg-gray-100 pb-20">
 
     <div id="login-gate">
-        <div class="w-full max-sm space-y-6">
+        <div class="w-full max-w-sm space-y-6">
             <div class="text-center">
                 <div class="font-black text-3xl text-blue-700 italic uppercase">GZ022.US.CI</div>
                 <p class="text-[10px] text-gray-400 font-bold tracking-[0.3em] mt-1 uppercase">Advanced 120-Slot System</p>
             </div>
 
             <div class="glass-card p-6 rounded-[2.5rem] shadow-2xl text-center border-t-4 border-blue-500">
-                <h2 class="font-black text-gray-800 mb-5 uppercase text-[10px] tracking-widest text-blue-600">解锁访问区 (1-120)</h2>
+                <h2 class="font-black text-blue-600 mb-5 uppercase text-xl italic">看照片入口</h2>
                 <input id="user-code-input" type="tel" placeholder="请输入4位访问码" class="w-full border-2 p-4 mb-4 text-center font-bold text-2xl rounded-2xl outline-none focus:border-blue-500 bg-white">
-                <button onclick="clientLogin()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg">验证并进入</button>
+                <button onclick="clientLogin()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg text-xl">验证并进入</button>
             </div>
 
             <div class="glass-card p-6 rounded-[2.5rem] shadow-xl">
@@ -138,7 +138,6 @@
             const role = sessionStorage.getItem('gz_role');
             let query = _client.from('photo_list').select('*').order('created_at', { ascending: true });
             
-            // 客户端：显示所有未隐藏照片（不再分组）
             if(role === 'USER') {
                 query = query.eq('is_hidden', false);
             }
