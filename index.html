@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GZ022 系统最终增强版</title>
+    <title>GZ022 系统修复版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -53,7 +53,6 @@
 
     <header class="bg-white/80 backdrop-blur-md p-4 flex justify-between items-center border-b sticky top-0 z-50">
         <div class="font-black text-blue-700 italic text-xl tracking-tighter">GZ022.US.CI</div>
-        
         <div id="action-panel" class="hidden flex gap-2">
             <div id="admin-tools" class="hidden flex gap-2">
                 <input type="file" id="photo-upload" class="hidden" accept="image/*" onchange="openUploadDialog()">
@@ -112,7 +111,7 @@
                     is_hidden: false 
                 }]);
                 location.reload();
-            } catch (e) { alert("同步失败"); btn.disabled = false; }
+            } catch (e) { alert("同步失败"); btn.disabled = false; btn.innerText = "确定上传并绑定"; }
         }
 
         async function toggleHide(id, currentStatus) {
@@ -120,10 +119,13 @@
             if(!error) renderContent();
         }
 
+        // --- 重点修复：客户登录逻辑 ---
         function clientLogin() {
             const val = document.getElementById('user-code-input').value.trim();
             const map = JSON.parse(localStorage.getItem('GZ_ACTIVE_MAP') || "{}");
-            if(map[val] && (Date.now() - map[val] < EXPIRE_LIMIT)) {
+            
+            // 只要号码池里有这个码，且没超过20分钟，就允许进入
+            if (map[val] && (Date.now() - map[val] < EXPIRE_LIMIT)) {
                 sessionStorage.setItem('gz_role', 'USER');
                 location.reload();
             } else {
@@ -143,10 +145,7 @@
         async function renderContent() {
             const role = sessionStorage.getItem('gz_role');
             let query = _client.from('photo_list').select('*').order('created_at', { ascending: true });
-            
-            if(role === 'USER') {
-                query = query.eq('is_hidden', false);
-            }
+            if(role === 'USER') query = query.eq('is_hidden', false);
 
             const { data } = await query;
             const container = document.getElementById('content-area');
@@ -198,13 +197,14 @@
             if(role) {
                 document.getElementById('login-gate').style.display = 'none';
                 document.getElementById('action-panel').classList.remove('hidden');
-                if(role === 'ADMIN') {
-                    document.getElementById('admin-tools').classList.remove('hidden');
-                }
+                if(role === 'ADMIN') document.getElementById('admin-tools').classList.remove('hidden');
                 renderContent();
             }
         };
-        function closeUploadModal() { document.getElementById('upload-modal').style.display = 'none'; }
+        function closeUploadModal() { 
+            document.getElementById('upload-modal').style.display = 'none';
+            document.getElementById('photo-upload').value = "";
+        }
         function showError(m) { const e = document.getElementById('login-err'); e.innerText = m; e.classList.remove('hidden'); setTimeout(()=>e.classList.add('hidden'), 3000); }
         function logout() { sessionStorage.clear(); location.reload(); }
     </script>
