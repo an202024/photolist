@@ -3,62 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>GZ022 离线管理系统</title>
+    <title>GZ022 系统最终增强版</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; }
-        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(229, 231, 235, 0.5); }
-        #login-gate { position: fixed; inset: 0; background: #f3f4f6; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .active-scale:active { transform: scale(0.95); transition: 0.1s; }
-        #upload-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 10000; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(15px); border: 1px solid rgba(229, 231, 235, 0.7); }
+        #login-gate { position: fixed; inset: 0; background: #f0f2f5; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        #upload-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 10000; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .active-scale:active { transform: scale(0.96); transition: 0.1s; }
+        .hide-overlay { filter: grayscale(1) opacity(0.5); }
     </style>
 </head>
-<body class="bg-gray-50 pb-20">
+<body class="bg-gray-100 pb-20">
 
     <div id="login-gate">
-        <div class="w-full max-w-sm space-y-6">
-            <div class="text-center mb-10">
-                <div class="font-black text-3xl text-blue-700 italic tracking-tighter uppercase">GZ022.US.CI</div>
-                <p class="text-gray-400 text-[10px] mt-2 tracking-[0.2em] font-bold">SECURE OFFLINE SYSTEM</p>
+        <div class="w-full max-sm space-y-6">
+            <div class="text-center">
+                <div class="font-black text-3xl text-blue-700 italic uppercase">GZ022.US.CI</div>
+                <p class="text-[10px] text-gray-400 font-bold tracking-[0.3em] mt-1 uppercase">Advanced 120-Slot System</p>
             </div>
 
-            <div class="glass-card p-6 rounded-[2rem] shadow-xl">
-                <!-- 已按要求修改文字为：看照片入口 -->
-                <h2 class="text-center font-black text-gray-800 mb-4 uppercase text-sm tracking-widest">看照片入口</h2>
-                <input id="user-code-input" type="tel" pattern="[0-9]*" placeholder="请输入4位访问码" 
-                    class="w-full border-2 border-gray-100 p-4 mb-4 text-center font-bold text-xl outline-none rounded-2xl focus:border-blue-500 bg-gray-50">
-                <button onclick="clientLogin()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg">立即进入</button>
+            <div class="glass-card p-6 rounded-[2.5rem] shadow-2xl text-center border-t-4 border-blue-500">
+                <h2 class="font-black text-gray-800 mb-5 uppercase text-[10px] tracking-widest text-blue-600">解锁访问区 (1-120)</h2>
+                <input id="user-code-input" type="tel" placeholder="请输入4位访问码" class="w-full border-2 p-4 mb-4 text-center font-bold text-2xl rounded-2xl outline-none focus:border-blue-500 bg-white">
+                <button onclick="clientLogin()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg">验证并进入</button>
             </div>
 
-            <div class="glass-card p-6 rounded-[2rem] shadow-xl">
-                <input id="admin-pwd-input" type="password" placeholder="ADMIN PASSWORD" 
-                    class="w-full border-2 border-gray-100 p-4 mb-4 text-center font-bold text-lg outline-none rounded-2xl focus:border-red-400 bg-gray-50">
-                <button onclick="adminLogin()" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-black active-scale shadow-lg">登录</button>
+            <div class="glass-card p-6 rounded-[2.5rem] shadow-xl">
+                <input id="admin-pwd-input" type="password" placeholder="ADMIN PASSWORD" class="w-full border-2 p-4 mb-4 text-center font-bold text-lg rounded-2xl outline-none focus:border-red-400 bg-white">
+                <button onclick="adminLogin()" class="w-full bg-gray-900 text-white py-4 rounded-2xl font-black active-scale shadow-lg uppercase">管理登录</button>
             </div>
-            
-            <p id="login-err" class="text-red-500 text-center text-xs font-bold hidden uppercase">验证失败或密码已过期</p>
+            <p id="login-err" class="text-red-500 text-center text-[10px] font-bold hidden uppercase tracking-widest">验证失败或已过期</p>
         </div>
     </div>
 
-    <!-- 管理员上传描述对话框 -->
     <div id="upload-modal">
-        <div class="bg-white w-full max-w-sm rounded-[2rem] p-6 space-y-4">
-            <h3 class="font-black text-center text-gray-800 uppercase text-sm tracking-widest">设置照片描述</h3>
-            <div id="upload-preview" class="w-full h-48 rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center">
+        <div class="bg-white w-full max-w-sm rounded-[2.5rem] p-7 space-y-4">
+            <h3 class="font-black text-center text-xs tracking-widest uppercase text-gray-800">上传照片</h3>
+            <div id="pos-display" class="bg-blue-50 p-4 rounded-2xl text-center font-black text-blue-700 italic border border-blue-100 uppercase text-xs">检测位置...</div>
+            <div class="w-full h-44 rounded-2xl bg-gray-50 overflow-hidden flex items-center justify-center border-2 border-dashed border-gray-200">
                 <img id="temp-img" src="" class="max-w-full max-h-full object-contain">
             </div>
-            <textarea id="photo-desc-input" placeholder="输入照片描述..." class="w-full border-2 border-gray-50 p-4 rounded-xl text-sm outline-none focus:border-blue-400 h-24 resize-none"></textarea>
-            <button onclick="confirmUpload()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black active-scale shadow-lg">确定上传</button>
-            <button onclick="closeUploadModal()" class="w-full text-gray-400 text-[10px] font-bold uppercase">取消</button>
+            <textarea id="photo-desc-input" placeholder="请输入照片描述信息..." class="w-full border-2 p-4 rounded-2xl text-sm outline-none h-24 resize-none bg-gray-50 focus:border-blue-400"></textarea>
+            <button id="confirm-btn" onclick="confirmUpload()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black active-scale shadow-lg">确定上传并绑定</button>
+            <button onclick="closeUploadModal()" class="w-full text-gray-400 text-[10px] font-bold uppercase tracking-widest">取消</button>
         </div>
     </div>
 
-    <header class="bg-white/90 backdrop-blur-md p-4 flex justify-between items-center border-b sticky top-0 z-50">
-        <div class="font-black text-blue-700 italic tracking-tighter text-lg">GZ022.US.CI</div>
+    <header class="bg-white/80 backdrop-blur-md p-4 flex justify-between items-center border-b sticky top-0 z-50">
+        <div class="font-black text-blue-700 italic text-xl tracking-tighter">GZ022.US.CI</div>
         <div id="admin-panel" class="hidden flex gap-2">
             <input type="file" id="photo-upload" class="hidden" accept="image/*" onchange="openUploadDialog()">
-            <button onclick="document.getElementById('photo-upload').click()" class="bg-blue-600 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-sm active-scale">上传</button>
-            <button onclick="generateLocalCode()" class="bg-green-600 text-white px-4 py-2 rounded-full text-[10px] font-bold uppercase shadow-sm active-scale">生成密码</button>
+            <button onclick="document.getElementById('photo-upload').click()" class="bg-blue-600 text-white px-4 py-2 rounded-full text-[10px] font-bold active-scale shadow-sm">上传图片</button>
+            <button onclick="generateLocalCode()" class="bg-green-600 text-white px-4 py-2 rounded-full text-[10px] font-bold active-scale shadow-sm">生成码</button>
             <button onclick="logout()" class="text-[10px] font-bold text-red-500 border border-red-100 px-4 py-2 rounded-full active-scale">退出</button>
         </div>
     </header>
@@ -66,130 +64,139 @@
     <main id="content-area" class="p-4 space-y-8 max-w-xl mx-auto"></main>
 
     <script>
+        const SB_URL = 'https://hjmpzvqehyxlsnjieihx.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqbXB6dnFlaHl4bHNuamllaWh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyNjE4OTEsImV4cCI6MjA5MDgzNzg5MX0.9sEHRljY14jgsONe9ATFnPJYUAaj7BxCKsqvCp6Ft1s';
+        
+        const _client = supabase.createClient(SB_URL, SB_KEY);
         const ADMIN_PASS = "admin2020";
-        const CODE_EXPIRE_TIME = 20 * 60 * 1000;
-        let pendingImageData = null;
+        const EXPIRE_LIMIT = 20 * 60 * 1000;
+        let pendingFile = null;
+        let currentCount = 0;
 
-        function initCodePool() {
-            if (!localStorage.getItem('GZ_POOL')) {
-                let codes = [];
-                for (let i = 1000; i <= 9999; i++) codes.push(i.toString());
-                for (let i = codes.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [codes[i], codes[j]] = [codes[j], codes[i]];
-                }
-                localStorage.setItem('GZ_POOL', JSON.stringify(codes.slice(0, 2000)));
+        function init() {
+            if(!localStorage.getItem('GZ_POOL')) {
+                let s=[]; for(let i=1000; i<=9999; i++) s.push(i.toString());
+                for(let i=s.length-1; i>0; i--) { const j=Math.floor(Math.random()*(i+1)); [s[i],s[j]]=[s[j],s[i]]; }
+                localStorage.setItem('GZ_POOL', JSON.stringify(s.slice(0, 1000)));
                 localStorage.setItem('GZ_INDEX', '0');
-                localStorage.setItem('GZ_ACTIVE_CODES', JSON.stringify({}));
+                localStorage.setItem('GZ_ACTIVE_MAP', JSON.stringify({}));
             }
         }
 
-        function openUploadDialog() {
-            const file = document.getElementById('photo-upload').files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                pendingImageData = e.target.result;
-                document.getElementById('temp-img').src = e.target.result;
-                document.getElementById('photo-desc-input').value = "";
-                document.getElementById('upload-modal').style.display = 'flex';
-            };
-            reader.readAsDataURL(file);
+        async function openUploadDialog() {
+            const { count } = await _client.from('photo_list').select('*', { count: 'exact', head: true });
+            currentCount = count || 0;
+            if(currentCount >= 120) return alert("达到120张上限");
+            pendingFile = document.getElementById('photo-upload').files[0];
+            if(!pendingFile) return;
+            document.getElementById('pos-display').innerText = `NO. ${currentCount + 1} / 120`;
+            document.getElementById('temp-img').src = URL.createObjectURL(pendingFile);
+            document.getElementById('upload-modal').style.display = 'flex';
         }
 
-        function confirmUpload() {
-            const desc = document.getElementById('photo-desc-input').value.trim();
-            let localGallery = JSON.parse(localStorage.getItem('GZ_GALLERY') || "[]");
-            
-            localGallery.unshift({
-                url: pendingImageData,
-                desc: desc || "无描述",
-                id: Date.now() + Math.random()
-            });
-            
-            localStorage.setItem('GZ_GALLERY', JSON.stringify(localGallery.slice(0, 50)));
-            closeUploadModal();
-            renderContent();
-            document.getElementById('photo-upload').value = "";
+        async function confirmUpload() {
+            const btn = document.getElementById('confirm-btn');
+            const desc = document.getElementById('photo-desc-input').value.trim() || "无描述";
+            btn.disabled = true; btn.innerText = "云端同步中...";
+            try {
+                const fName = `${Date.now()}_${pendingFile.name}`;
+                await _client.storage.from('photos').upload(fName, pendingFile);
+                const { data: urlData } = _client.storage.from('photos').getPublicUrl(fName);
+                const groupLabel = (currentCount + 1) <= 40 ? "1" : "2";
+                await _client.from('photo_list').insert([{ 
+                    url: urlData.publicUrl, 
+                    description: desc,
+                    access_code: groupLabel,
+                    is_hidden: false 
+                }]);
+                location.reload();
+            } catch (e) { alert("同步失败"); btn.disabled = false; }
         }
 
-        function closeUploadModal() {
-            document.getElementById('upload-modal').style.display = 'none';
-            pendingImageData = null;
-        }
-
-        function generateLocalCode() {
-            const pool = JSON.parse(localStorage.getItem('GZ_POOL'));
-            const index = parseInt(localStorage.getItem('GZ_INDEX'));
-            const activeCodes = JSON.parse(localStorage.getItem('GZ_ACTIVE_CODES') || "{}");
-            if (index >= pool.length) return alert("库存已用尽");
-            const code = pool[index];
-            activeCodes[code] = Date.now();
-            localStorage.setItem('GZ_INDEX', (index + 1).toString());
-            localStorage.setItem('GZ_ACTIVE_CODES', JSON.stringify(activeCodes));
-            alert(`【生成成功】\n随机密码：${code}\n有效期：20分钟`);
+        async function toggleHide(id, currentStatus) {
+            const { error } = await _client.from('photo_list').update({ is_hidden: !currentStatus }).eq('id', id);
+            if(!error) renderContent();
         }
 
         function clientLogin() {
             const val = document.getElementById('user-code-input').value.trim();
-            const activeCodes = JSON.parse(localStorage.getItem('GZ_ACTIVE_CODES') || "{}");
-            if (activeCodes[val] && (Date.now() - activeCodes[val] < CODE_EXPIRE_TIME)) {
+            const map = JSON.parse(localStorage.getItem('GZ_ACTIVE_MAP') || "{}");
+            if(map[val] && (Date.now() - map[val] < EXPIRE_LIMIT)) {
                 sessionStorage.setItem('gz_role', 'USER');
                 location.reload();
-            } else {
-                showError("访问码无效或已过期");
-            }
+            } else showError("访问码无效或过期");
         }
 
         function adminLogin() {
-            if (document.getElementById('admin-pwd-input').value.trim() === ADMIN_PASS) {
+            if(document.getElementById('admin-pwd-input').value.trim() === ADMIN_PASS) {
                 sessionStorage.setItem('gz_role', 'ADMIN');
                 location.reload();
             } else showError("管理密码错误");
         }
 
-        window.onload = () => {
-            initCodePool();
+        async function renderContent() {
             const role = sessionStorage.getItem('gz_role');
-            if (role) {
-                document.getElementById('login-gate').style.display = 'none';
-                if (role === 'ADMIN') document.getElementById('admin-panel').classList.remove('hidden');
-                renderContent();
-            }
-        };
-
-        function renderContent() {
-            const localGallery = JSON.parse(localStorage.getItem('GZ_GALLERY') || "[]");
-            const grid = document.getElementById('content-area');
-            const isAdmin = sessionStorage.getItem('gz_role') === 'ADMIN';
+            let query = _client.from('photo_list').select('*').order('created_at', { ascending: true });
             
-            if (localGallery.length === 0) {
-                grid.innerHTML = '<p class="text-center text-gray-300 py-20 font-bold">暂无内容</p>';
+            // 客户端：显示所有未隐藏照片（不再分组）
+            if(role === 'USER') {
+                query = query.eq('is_hidden', false);
+            }
+
+            const { data } = await query;
+            const container = document.getElementById('content-area');
+            if(!data || data.length === 0) {
+                container.innerHTML = '<div class="text-center py-32 text-gray-300 font-black text-[10px] tracking-widest uppercase">Content Unavailable</div>';
                 return;
             }
-            grid.innerHTML = localGallery.map(item => `
-                <div class="bg-white rounded-[1.5rem] shadow-sm border border-gray-100 overflow-hidden relative">
-                    <img src="${item.url}" class="w-full h-auto block">
-                    <div class="p-4 bg-gray-50 border-t border-gray-50">
-                        <p class="text-gray-800 text-sm font-bold leading-relaxed">${item.desc}</p>
+
+            container.innerHTML = data.map((item, index) => `
+                <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden relative ${item.is_hidden && role === 'ADMIN' ? 'hide-overlay' : ''}">
+                    <img src="${item.url}" class="w-full h-auto block" loading="lazy">
+                    <div class="p-6">
+                        <span class="text-[9px] font-black text-blue-500 uppercase">INDEX: ${index + 1} ${item.is_hidden ? '<span class="text-red-500 font-black ml-2">[已隐藏]</span>' : ''}</span>
+                        <p class="text-gray-800 text-sm font-bold mt-1 leading-relaxed">${item.description}</p>
+                        ${role === 'ADMIN' ? `
+                            <div class="mt-4 flex gap-2 border-t pt-4">
+                                <button onclick="toggleHide('${item.id}', ${item.is_hidden})" class="flex-1 py-2 rounded-xl text-[9px] font-black uppercase active-scale ${item.is_hidden ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500'}">
+                                    ${item.is_hidden ? '恢复上线' : '点击请假隐藏'}
+                                </button>
+                                <button onclick="deletePhoto('${item.id}', '${item.url}')" class="px-4 py-2 bg-red-50 text-red-500 rounded-xl text-[9px] font-black active-scale shadow-sm">删除</button>
+                            </div>
+                        ` : ''}
                     </div>
-                    ${isAdmin ? `<button onclick="deleteImg(${item.id})" class="absolute top-4 right-4 bg-red-500 text-white text-[8px] px-2 py-1 rounded-full font-bold">删除</button>` : ''}
                 </div>
             `).join('');
         }
 
-        function deleteImg(id) {
-            let localGallery = JSON.parse(localStorage.getItem('GZ_GALLERY') || "[]");
-            localStorage.setItem('GZ_GALLERY', JSON.stringify(localGallery.filter(i => i.id !== id)));
-            renderContent();
+        async function deletePhoto(id, url) {
+            if(!confirm("确定永久删除这张照片吗？")) return;
+            const path = url.split('/').pop();
+            await _client.storage.from('photos').remove([path]);
+            await _client.from('photo_list').delete().eq('id', id);
+            location.reload();
         }
 
-        function showError(msg) {
-            const err = document.getElementById('login-err');
-            err.innerText = msg; err.classList.remove('hidden');
-            setTimeout(() => err.classList.add('hidden'), 3000);
+        function generateLocalCode() {
+            const p = JSON.parse(localStorage.getItem('GZ_POOL'));
+            const i = parseInt(localStorage.getItem('GZ_INDEX'));
+            const a = JSON.parse(localStorage.getItem('GZ_ACTIVE_MAP') || "{}");
+            const code = p[i]; a[code] = Date.now();
+            localStorage.setItem('GZ_INDEX', (i+1).toString());
+            localStorage.setItem('GZ_ACTIVE_MAP', JSON.stringify(a));
+            alert(`【生成成功】\n随机码：${code}\n说明：有效期20分钟。`);
         }
 
+        window.onload = () => {
+            init();
+            if(sessionStorage.getItem('gz_role')) {
+                document.getElementById('login-gate').style.display = 'none';
+                if(sessionStorage.getItem('gz_role') === 'ADMIN') document.getElementById('admin-panel').classList.remove('hidden');
+                renderContent();
+            }
+        };
+        function closeUploadModal() { document.getElementById('upload-modal').style.display = 'none'; }
+        function showError(m) { const e = document.getElementById('login-err'); e.innerText = m; e.classList.remove('hidden'); setTimeout(()=>e.classList.add('hidden'), 3000); }
         function logout() { sessionStorage.clear(); location.reload(); }
     </script>
 </body>
